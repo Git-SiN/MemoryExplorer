@@ -1,0 +1,4 @@
+TARGETNAME=MemoryExplorer
+TARGETPATH=..\Bins
+TARGETTYPE=DRIVER
+SOURCES=driver.c
