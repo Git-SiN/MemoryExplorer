@@ -32,7 +32,7 @@ BOOLEAN MakeFullName() {
 	return TRUE;
 }
 
-// 여기서 주소 값을 버퍼의 첫 4바이트에 넣어 보낸다.
+// Store the Starting address in the first 4 bytes of buffer at here. 
 BOOLEAN ManipulateMemory(ULONG startAddress, ULONG length, PUCHAR buffer) {
 	BOOLEAN result = FALSE;
 	ULONG received = 0;
@@ -152,7 +152,7 @@ BOOLEAN SendControlMessageByPointer(UCHAR control, PVOID pMessage, ULONG length)
 	return result;
 }
 
-// 일단 METHOD_BUFFERED만
+// Only METHOD_BUFFERED...
 BOOLEAN SendControlMessage(UCHAR control, ULONG message) {
 	BOOLEAN result;
 	ULONG received = 0;
@@ -177,7 +177,7 @@ BOOLEAN SendControlMessage(UCHAR control, ULONG message) {
 }
 
 BOOLEAN ConnectToKernel() {
-	// ADMIN 권한 체크 + 로딩.
+	// Check the privilege and Load my driver.
 	if (TestPrivileges() && MakeFullName() &&
 		ManageDriver(DRIVER_FULL_NAME, MANAGE_DRIVER_INSTALL) &&
 		ManageDriver(DRIVER_FULL_NAME, MANAGE_DRIVER_START)) {

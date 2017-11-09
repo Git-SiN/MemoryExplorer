@@ -94,7 +94,7 @@ typedef struct _VAD_DETAILS {
 	ULONG SG_Flags;
 	ULONG SG_NumberOfCommittedPages;
 	LARGE_INTEGER SG_SizeOfSegment;
-	VAD_DETAILS_SUBSECTION ASubsection;		// 서브섹션이 한 개 이상이면, ASubsection.SubsectionAddress가 0xFFFFFFFF.
+	VAD_DETAILS_SUBSECTION ASubsection;		// if Any Subsections exist, ASubsection.SubsectionAddress is 0xFFFFFFFF.
 }VAD_DETAILS, *PVAD_DETAILS;
 
 typedef struct _HANDLE_ENTRY {
