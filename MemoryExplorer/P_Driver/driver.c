@@ -836,9 +836,9 @@ NTSTATUS HandleTableMaker(PDEVICE_EXTENSION pExtension) {
 
 NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessage) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
-	ULONG index = 0;
+	ULONG count = 0;
 	PMMWSL pMmWsl = NULL;
-	PULONG copied = NULL;
+	PUCHAR copied = NULL;
 	ULONG i = 0;
 	
 	if (pExtension->pTargetObject == NULL) {
@@ -846,7 +846,7 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 		return ntStatus;
 	}
 	
-	// IN the EPROCESS, Included the __MMSUPPROT structure itself. Not the pointer.
+	// IN the EPROCESS, the __MMSUPPROT structure is included. Not the pointer.
 	pMmWsl = (PMMWSL)(((PMMSUPPORT)((pExtension->pTargetObject->pEprocess) + EPROC_OFFSET_Vm))->VmWorkingSetList);
 	if (((ULONG)pMmWsl) < 0xC0000000) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid VM field in EPROCESS...\n");
@@ -877,13 +877,13 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 	if (NT_SUCCESS(ntStatus)) {
 		ntStatus = STATUS_UNSUCCESSFUL;
 
-		index = ((PMMWSL)(pMessage->Message.Buffer + 4))->LastInitializedWsle;		
-		copied = ExAllocatePool(NonPagedPool, index * sizeof(ULONG));	
+		count = (((PMMWSL)(pMessage->Message.Buffer + 4))->LastInitializedWsle) + 1;
+		copied = ExAllocatePool(NonPagedPool, count * sizeof(ULONG));
 		if (copied == NULL) {
 			DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool for COPIED in WorkingSetListMaker()\n");
 		}
 		else {
-			RtlZeroMemory(copied, index * sizeof(ULONG));
+			RtlZeroMemory(copied, count * sizeof(ULONG));
 
 			if (!NT_SUCCESS(ManipulateAddressTables())) {
 				DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in WorkingSetListMaker()...\n");
@@ -894,7 +894,7 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 				__try {
 					if (pMmWsl->Wsle != NULL) {
 						pMmWsl = (PMMWSL)(pMmWsl->Wsle);		// Reuse the value "pMmWsl".
-						RtlCopyMemory((PULONG)copied, (PULONG)pMmWsl, index * sizeof(ULONG));
+						RtlCopyMemory((PULONG)copied, (PULONG)pMmWsl, count * sizeof(ULONG));
 						ntStatus = STATUS_SUCCESS;
 					}
 				}
@@ -902,7 +902,7 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 					DbgPrintEx(101, 0, "[ERROR] EXCEPTION occured in WorkingSetListMaker()\n");
 					ExFreePool(copied);
 					copied = NULL;
-					index = 0;
+					count = 0;
 				}
 				RestoreAddressTables();
 			}
@@ -914,7 +914,7 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 	////////////////////////////////		 Queuing the Messages		////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////
 	if(NT_SUCCESS(ntStatus)) {
-		*(PULONG)(pMessage->Message.Buffer) = index;
+		*(PULONG)(pMessage->Message.Buffer) = count;
 		pMessage->Message.MessageType = MESSAGE_TYPE_WORKINGSET_SUMMARY;
 
 		__try {	
@@ -922,23 +922,31 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 			KeReleaseSemaphore(&(pExtension->CommunicationSemapohore), 0, 1, FALSE);
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
-			DbgPrintEx(101, 0, "[ERROR] Failed to queue at WorkingSetListMaker() for SUMMARY\n");
+			DbgPrintEx(101, 0, "[ERROR] Failed to queue in WorkingSetListMaker() for SUMMARY\n");
 			ExFreePool(pMessage);
 			ExFreePool(copied);
 			return STATUS_UNSUCCESSFUL;
 		}
 		
-		// ¿ä°Å Àß¸øµÊ.
-		/*do {
+		/////////////////////////		BOSD occured... BAD_POOL_HEADER
+		// count -> byte
+	/*	count = count * sizeof(ULONG);
+		  
+		for (i = 0; i <= count; i += 1024) {
 			pMessage = NULL;
 			pMessage = (PMESSAGE_LIST)ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
 			if (pMessage == NULL) {
 				DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool in WorkingSetListMaker()\n");
+				ntStatus = STATUS_UNSUCCESSFUL;
 				break;
 			}
 			RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
-			RtlCopyMemory(pMessage->Message.Buffer, (PUCHAR)(((ULONG)copied) + (i * 1024)), ((1024 * (i + 1)) < (index * sizeof(ULONG)))? 1024 : ((index * sizeof(ULONG)) % 1024));
+			
 			pMessage->Message.MessageType = MESSAGE_TYPE_WORKINGSET_LIST;
+			if((i + 1024) > count)
+				RtlCopyMemory(pMessage->Message.Buffer, copied + i, count % 1024);
+			else
+				RtlCopyMemory(pMessage->Message.Buffer, copied + i, 1024);
 
 			__try {
 				ExInterlockedInsertTailList(&(pExtension->MessageQueue), &(pMessage->ListEntry), &(pExtension->MessageLock));
@@ -947,12 +955,10 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 			__except (EXCEPTION_EXECUTE_HANDLER) {
 				DbgPrintEx(101, 0, "[ERROR] Failed to queue at WorkingSetListMaker() for LIST\n");
 				ExFreePool(pMessage);
+				ntStatus = STATUS_UNSUCCESSFUL;
 				break;
 			}
-			i++;
-			
-		} while ((1024 * i) < (index * sizeof(ULONG)));
-*/
+		}*/
 		ExFreePool(copied);
 	}
 	else {
@@ -964,7 +970,7 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 			KeReleaseSemaphore(&(pExtension->CommunicationSemapohore), 0, 1, FALSE);
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
-			DbgPrintEx(101, 0, "[ERROR] Failed to queue at WorkingSetListMaker() for SUMMARY\n");
+			DbgPrintEx(101, 0, "[ERROR] Failed to queue in WorkingSetListMaker() for SUMMARY\n");
 			ExFreePool(pMessage);
 		}
 	}
