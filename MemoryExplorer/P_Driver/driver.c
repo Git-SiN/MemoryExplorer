@@ -282,12 +282,13 @@ VOID OnUnload(PDRIVER_OBJECT pDriverObject) {
 
 	pExtension = pDriverObject->DeviceObject->DeviceExtension;
 	if ((pExtension->CommunicationThread) && !(pExtension->bTerminateThread)) {
+		pExtension->bTerminateThread = TRUE; 
+		
 		if (pExtension->isWaitingIRP) {
 			pExtension->isWaitingIRP = FALSE;
 			KeSetEvent(&(pExtension->WaitingIRPEvent), 0, FALSE);
 		}
-
-		pExtension->bTerminateThread = TRUE;
+		
 		KeReleaseSemaphore(&(pExtension->CommunicationSemapohore), 0, 1, FALSE);
 		KeWaitForSingleObject(pExtension->CommunicationThread, Executive, KernelMode, FALSE, NULL);
 	
@@ -928,9 +929,10 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 			return STATUS_UNSUCCESSFUL;
 		}
 		
-		/////////////////////////		BOSD occured... BAD_POOL_HEADER
+		/////////////////////////		BSOD occured... BAD_POOL_HEADER
+		//		-> It is CommunicationThread()'s fault... NOT here...
 		// count -> byte
-	/*	count = count * sizeof(ULONG);
+		count = count * sizeof(ULONG);
 		  
 		for (i = 0; i <= count; i += 1024) {
 			pMessage = NULL;
@@ -953,12 +955,13 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 				KeReleaseSemaphore(&(pExtension->CommunicationSemapohore), 0, 1, FALSE);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
-				DbgPrintEx(101, 0, "[ERROR] Failed to queue at WorkingSetListMaker() for LIST\n");
+				DbgPrintEx(101, 0, "[ERROR] Failed to queue in WorkingSetListMaker() for LIST\n");
 				ExFreePool(pMessage);
 				ntStatus = STATUS_UNSUCCESSFUL;
 				break;
 			}
-		}*/
+		}
+		
 		ExFreePool(copied);
 	}
 	else {
@@ -1722,7 +1725,7 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 			// Free the TARGET_OBJECT.
 			ExFreePool(pExtension->pTargetObject);
 			pExtension->pTargetObject = NULL;
-
+			
 			// Empty the message queue for the current target.
 			ListCleaner(&(pExtension->MessageQueue), &(pExtension->MessageLock));
 			ntStatus = STATUS_SUCCESS;
@@ -1850,67 +1853,74 @@ VOID CommunicationThread(PDEVICE_EXTENSION pExtension) {
 		}
 		
 		KeAcquireSpinLock(&(pExtension->MessageLock), &oldIrql);
-		if (!IsListEmpty(&(pExtension->MessageQueue))) {
-			pMessageList = RemoveHeadList(&(pExtension->MessageQueue));
-			KeReleaseSpinLock(&(pExtension->MessageLock), oldIrql);
+		if (!IsListEmpty(&(pExtension->MessageQueue)))
+			pMessageList = RemoveHeadList(&(pExtension->MessageQueue));		
+		KeReleaseSpinLock(&(pExtension->MessageLock), oldIrql);
 
-			if (pMessageList == NULL)
-				continue;
+		if (pMessageList == NULL) {
+			DbgPrintEx(101, 0, "[ERROR] Message list is empty when communication thread waked up.\n");
+
+			// I had forgotten it...	-> It had led to BSOD : BAD_POOL_HEADER
+			continue;
 		}
 		else {
-			KeReleaseSpinLock(&(pExtension->MessageLock), oldIrql);
-			DbgPrintEx(101, 0, "[ERROR] Message list is empty at communication thread waked up.\n");
-		}
-
-		KeAcquireSpinLock(&(pExtension->PendingIrpLock), &oldIrql);
-		if (IsListEmpty(&(pExtension->PendingIrpQueue))) {
-			pExtension->isWaitingIRP = TRUE;
-			KeReleaseSpinLock(&(pExtension->PendingIrpLock), oldIrql);
-
-			KeResetEvent(&(pExtension->WaitingIRPEvent));
-			KeWaitForSingleObject(&(pExtension->WaitingIRPEvent), Executive, KernelMode, FALSE, NULL);
-			
 			KeAcquireSpinLock(&(pExtension->PendingIrpLock), &oldIrql);
-			if (!IsListEmpty(&(pExtension->PendingIrpQueue))) {
-				pTmp = RemoveHeadList(&(pExtension->PendingIrpQueue));
-			}
-			KeReleaseSpinLock(&(pExtension->PendingIrpLock), oldIrql);
-			
-		}
-		else {
-			pTmp = RemoveHeadList(&(pExtension->PendingIrpQueue));
-			KeReleaseSpinLock(&(pExtension->PendingIrpLock), oldIrql);
-		}
-	
-		// if pTmp is not NULL, a Pending IRP exist. 
-		// If no Pending IRP exists, TARGET_OBJECT had been freed by unselecting target process.
-		//		-> In this case, Free message and go back to the state of waiting seamphore.
-		if (pTmp) {
-			pIrp = CONTAINING_RECORD(pTmp, IRP, Tail.Overlay.ListEntry);
-
-			// 먼저 취소될 가능성이 있나????????????? 이거 말곤 BSOD 가능성 전무... 일단 처리.
-			if ((pIrp != NULL) && !(pIrp->Cancel)) {
-				__try {
-					pTmp = MmGetSystemAddressForMdl(pIrp->MdlAddress);
-
-					// BSOD occured!!!!! [0x7E SYSTEM_THREAD_EXCEPTION_NOT_HANDLED -> MEMORY_ACCESS_VIOLATION]
-					RtlCopyMemory(pTmp, &(pMessageList->Message), sizeof(MESSAGE_ENTRY));
-					pIrp->IoStatus.Status = STATUS_SUCCESS;
-					pIrp->IoStatus.Information = sizeof(MESSAGE_ENTRY);
-					IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+			if (IsListEmpty(&(pExtension->PendingIrpQueue))) {
+				pExtension->isWaitingIRP = TRUE;
+				KeReleaseSpinLock(&(pExtension->PendingIrpLock), oldIrql);
+				
+				KeResetEvent(&(pExtension->WaitingIRPEvent));
+				KeWaitForSingleObject(&(pExtension->WaitingIRPEvent), Executive, KernelMode, FALSE, NULL);
+				
+				if (pExtension->bTerminateThread) {
+					DbgPrintEx(101, 0, "::: Terminate Communication Thread.\n");
+					ExFreePool(pMessageList);
+					PsTerminateSystemThread(STATUS_SUCCESS);
+					return;
 				}
-				__except (EXCEPTION_EXECUTE_HANDLER) {
-					DbgPrintEx(101, 0, "[ERROR] Already freed IRP in Communication Thread...\n");
-					// Just Proceed.
-				}				
-			}
-			
-			pIrp = NULL;
-			pTmp = NULL;
-		}		
+					
+				KeAcquireSpinLock(&(pExtension->PendingIrpLock), &oldIrql);
+				if (!IsListEmpty(&(pExtension->PendingIrpQueue))) {
+					pTmp = RemoveHeadList(&(pExtension->PendingIrpQueue));
+				}
+				KeReleaseSpinLock(&(pExtension->PendingIrpLock), oldIrql);
 
-		ExFreePool(pMessageList);
-		pMessageList = NULL;
+			}
+			else {
+				pTmp = RemoveHeadList(&(pExtension->PendingIrpQueue));
+				KeReleaseSpinLock(&(pExtension->PendingIrpLock), oldIrql);
+			}
+
+			// if pTmp is not NULL, a Pending IRP exist. 
+			// If no Pending IRP exists, TARGET_OBJECT had been freed by unselecting target process.
+			//		-> In this case, Free message and go back to the state of waiting seamphore.
+			if (pTmp) {
+				pIrp = CONTAINING_RECORD(pTmp, IRP, Tail.Overlay.ListEntry);
+
+				// 먼저 취소될 가능성이 있나????????????? 이거 말곤 BSOD 가능성 전무... 일단 처리.
+				if ((pIrp != NULL) && !(pIrp->Cancel)) {
+					__try {
+						pTmp = MmGetSystemAddressForMdl(pIrp->MdlAddress);
+
+						// BSOD had occured!!!!! [0x7E SYSTEM_THREAD_EXCEPTION_NOT_HANDLED -> MEMORY_ACCESS_VIOLATION]
+						RtlCopyMemory(pTmp, &(pMessageList->Message), sizeof(MESSAGE_ENTRY));
+						pIrp->IoStatus.Status = STATUS_SUCCESS;
+						pIrp->IoStatus.Information = sizeof(MESSAGE_ENTRY);
+						IoCompleteRequest(pIrp, IO_NO_INCREMENT);
+					}
+					__except (EXCEPTION_EXECUTE_HANDLER) {
+						DbgPrintEx(101, 0, "[ERROR] Already freed IRP in Communication Thread...\n");
+						// Just Proceed.
+					}
+				}
+
+				pIrp = NULL;
+				pTmp = NULL;
+			}
+
+			ExFreePool(pMessageList);
+			pMessageList = NULL;
+		}
 	}
 }
 

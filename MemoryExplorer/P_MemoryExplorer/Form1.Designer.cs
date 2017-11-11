@@ -85,14 +85,14 @@
             this.columnHeader17 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.toolStrip2 = new System.Windows.Forms.ToolStrip();
             this.tabPage7 = new System.Windows.Forms.TabPage();
-            this.lWorkingSetList = new System.Windows.Forms.ListView();
-            this.columnHeader18 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.columnHeader22 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.columnHeader23 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
             this.lWorkingSetSummary = new System.Windows.Forms.ListView();
             this.columnHeader24 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader25 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.lWorkingSetList = new System.Windows.Forms.ListView();
+            this.columnHeader18 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.columnHeader22 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.columnHeader23 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.menuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
@@ -635,54 +635,23 @@
             this.tabPage7.Text = "Working set";
             this.tabPage7.UseVisualStyleBackColor = true;
             // 
-            // lWorkingSetList
-            // 
-            this.lWorkingSetList.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.columnHeader18,
-            this.columnHeader22,
-            this.columnHeader23});
-            this.lWorkingSetList.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.lWorkingSetList.FullRowSelect = true;
-            this.lWorkingSetList.GridLines = true;
-            this.lWorkingSetList.Location = new System.Drawing.Point(0, 0);
-            this.lWorkingSetList.MultiSelect = false;
-            this.lWorkingSetList.Name = "lWorkingSetList";
-            this.lWorkingSetList.Size = new System.Drawing.Size(760, 579);
-            this.lWorkingSetList.TabIndex = 0;
-            this.lWorkingSetList.UseCompatibleStateImageBehavior = false;
-            this.lWorkingSetList.View = System.Windows.Forms.View.Details;
-            // 
-            // columnHeader18
-            // 
-            this.columnHeader18.Text = "Index";
-            this.columnHeader18.Width = 100;
-            // 
-            // columnHeader22
-            // 
-            this.columnHeader22.Text = "Address";
-            this.columnHeader22.Width = 120;
-            // 
-            // columnHeader23
-            // 
-            this.columnHeader23.Text = "Flags";
-            this.columnHeader23.Width = 300;
-            // 
             // splitContainer2
             // 
             this.splitContainer2.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.splitContainer2.FixedPanel = System.Windows.Forms.FixedPanel.Panel1;
             this.splitContainer2.Location = new System.Drawing.Point(3, 3);
             this.splitContainer2.Name = "splitContainer2";
             // 
             // splitContainer2.Panel1
             // 
             this.splitContainer2.Panel1.Controls.Add(this.lWorkingSetSummary);
-            this.splitContainer2.Panel1MinSize = 120;
+            this.splitContainer2.Panel1MinSize = 300;
             // 
             // splitContainer2.Panel2
             // 
             this.splitContainer2.Panel2.Controls.Add(this.lWorkingSetList);
             this.splitContainer2.Size = new System.Drawing.Size(1164, 579);
-            this.splitContainer2.SplitterDistance = 400;
+            this.splitContainer2.SplitterDistance = 300;
             this.splitContainer2.TabIndex = 0;
             // 
             // lWorkingSetSummary
@@ -696,7 +665,7 @@
             this.lWorkingSetSummary.Location = new System.Drawing.Point(0, 0);
             this.lWorkingSetSummary.MultiSelect = false;
             this.lWorkingSetSummary.Name = "lWorkingSetSummary";
-            this.lWorkingSetSummary.Size = new System.Drawing.Size(400, 579);
+            this.lWorkingSetSummary.Size = new System.Drawing.Size(300, 579);
             this.lWorkingSetSummary.TabIndex = 0;
             this.lWorkingSetSummary.UseCompatibleStateImageBehavior = false;
             this.lWorkingSetSummary.View = System.Windows.Forms.View.Details;
@@ -704,12 +673,45 @@
             // columnHeader24
             // 
             this.columnHeader24.Text = "Name";
-            this.columnHeader24.Width = 150;
+            this.columnHeader24.Width = 200;
             // 
             // columnHeader25
             // 
             this.columnHeader25.Text = "Value";
-            this.columnHeader25.Width = 300;
+            this.columnHeader25.Width = 100;
+            // 
+            // lWorkingSetList
+            // 
+            this.lWorkingSetList.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
+            this.columnHeader18,
+            this.columnHeader22,
+            this.columnHeader23});
+            this.lWorkingSetList.Dock = System.Windows.Forms.DockStyle.Fill;
+            this.lWorkingSetList.FullRowSelect = true;
+            this.lWorkingSetList.GridLines = true;
+            this.lWorkingSetList.Location = new System.Drawing.Point(0, 0);
+            this.lWorkingSetList.MultiSelect = false;
+            this.lWorkingSetList.Name = "lWorkingSetList";
+            this.lWorkingSetList.Size = new System.Drawing.Size(860, 579);
+            this.lWorkingSetList.TabIndex = 0;
+            this.lWorkingSetList.UseCompatibleStateImageBehavior = false;
+            this.lWorkingSetList.View = System.Windows.Forms.View.Details;
+            this.lWorkingSetList.VirtualMode = true;
+            this.lWorkingSetList.RetrieveVirtualItem += new System.Windows.Forms.RetrieveVirtualItemEventHandler(this.lWorkingSetList_RetrieveVirtualItem);
+            // 
+            // columnHeader18
+            // 
+            this.columnHeader18.Text = "Index";
+            // 
+            // columnHeader22
+            // 
+            this.columnHeader22.Text = "Description";
+            this.columnHeader22.Width = 440;
+            // 
+            // columnHeader23
+            // 
+            this.columnHeader23.Text = "Value";
+            this.columnHeader23.Width = 100;
             // 
             // fMain
             // 

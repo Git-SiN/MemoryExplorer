@@ -278,6 +278,8 @@ namespace MemoryExplorer
         internal uint dumpStartAddress = 0;
         internal uint dumpLength = 0;
 
+        private List<uint[]> workingSetList = new List<uint[]>();
+        private uint workingSetListCount = 0;
         
        // internal bool memoryManipulated = false;
         internal bool isErrorInVadDetails = false;
@@ -514,41 +516,106 @@ namespace MemoryExplorer
             lFinder.Items.Add(new ListViewItem(entry));
         }
 
+        private ListViewItem MakeVirtualItemForWorkingSet(int i)
+        {
+            string[] tmp = new string[3];
+            uint value = workingSetList[i / 256][i % 256];
+
+            tmp[0] = String.Format("0x{0:X4}", i);
+            if (value > 0)
+            {
+                if ((value & 0x1) == 0)
+                {
+                    tmp[1] = " ## Free   ";
+                    tmp[1] += String.Format("Prev : 0x{0:X5}   ", (value & 0xFFE) + ((value & 0xFF000000) >> 12));       // Maybe...
+                    tmp[1] += String.Format("Next : 0x{0:X5}", ((value & 0xFFFFF000) >> 12));
+                }
+                else
+                {
+                    tmp[1] = String.Format("VPN : 0x{0:X5}   ", ((value & 0xFFFFF000) >> 12));
+                    tmp[1] += String.Format("Age : {0}   ", ((value & 0xE00) >> 9));
+                    tmp[1] += String.Format("Protection : 0x{0:X}", ((value & 0x1F0) >> 4));
+                    if ((value & 0x40) != 0)
+                    {
+                        tmp[1] += String.Format("   [Direct");
+                        if ((value & 0x20) != 0)
+                            tmp[1] += String.Format(", Hashed");
+                        tmp[1] += "]";
+                    }
+                    else
+                    {
+                        if ((value & 0x20) != 0)
+                            tmp[1] += String.Format("   [Hashed]");
+                    }                        
+                }
+                tmp[2] = String.Format("0x{0:X8}", value);
+            }
+            else
+            {
+                tmp[1] = "!!! ERROR !!!";
+                tmp[2] = "!!! ERROR !!!";
+            }
+            return new ListViewItem(tmp);
+        }
+
         private void WorkingSetMaker(MESSAGE_ENTRY buffer) {
-            string[] entry = null;
+
             uint i = 0;
 
             switch ((uint)(buffer.MessageType))
             {
                 case (uint)(MESSAGE_TYPE.WorkingSetList):
-                    entry = new string[lWorkingSetList.Columns.Count];
-                    uint value = 0;
-                    int lastIndex = 0;
-
-                    if (lWorkingSetList.Items.Count > 0)
-                        lastIndex = lWorkingSetList.Items.Count;
-                    while(i < 256)
+                    uint[] list = new uint[256];
+                    
+                    for (i = 0; i < 256; i++)
                     {
-                        value = (uint)(ByteToStructure(buffer.Buffer, typeof(uint), i));
-                        if (value == 0)
+                        list[i] = (uint)(ByteToStructure(buffer.Buffer, typeof(uint), i));
+                        if (list[i] == 0)
                             break;
 
-                        if (value % 2 == 0)
-                            continue;
-
-                        entry[0] = String.Format("0x{0:X4}", i + lastIndex);
-                        entry[1] = String.Format("0x{0:X8}", value);
-                        entry[2] = String.Format("0x{0:X8}", value);
-
-                        lWorkingSetList.Items.Add(new ListViewItem(entry));
-                        i++;
+                        workingSetListCount++;
                     }
+
+                    if (list[0] != 0)
+                    {
+                        workingSetList.Add(list);
+                        lWorkingSetList.VirtualListSize = (int)workingSetListCount;
+                    }
+
+                    ////        -> Change to VIRTUAL MODE.
+                    //entry = new string[lWorkingSetList.Columns.Count];
+                    //uint value = 0;
+                    //int lastIndex = 0;
+
+                    //if (lWorkingSetList.Items.Count > 0)
+                    //    lastIndex = lWorkingSetList.Items.Count;
+                    //while(i < 256)
+                    //{
+                    //    value = (uint)(ByteToStructure(buffer.Buffer, typeof(uint), i));
+                    //    i++;
+
+                    //    if (value == 0)
+                    //        break;
+
+                    //    if (value % 2 == 0)
+                    //        continue;
+
+                    //    entry[0] = String.Format("0x{0:X4}", i + lastIndex);
+                    //    entry[1] = String.Format("0x{0:X8}", value);
+                    //    entry[2] = String.Format("0x{0:X8}", value);
+
+                    //    lWorkingSetList.Items.Add(new ListViewItem(entry));
+
+                    //}
                     break;
                 case (uint)(MESSAGE_TYPE.WorkingSetSummary):
                     lWorkingSetSummary.Items.Clear();
                     lWorkingSetList.Items.Clear();
+                    workingSetList.Clear();
+                    workingSetListCount = 0;
 
-                    entry = new string[lWorkingSetSummary.Columns.Count];
+
+                    string[] entry = new string[lWorkingSetSummary.Columns.Count];
                     for (i = 0; i < WorkingSetSummaryName.Length; i++)
                     {
                         entry[0] = WorkingSetSummaryName[i];
@@ -945,7 +1012,7 @@ namespace MemoryExplorer
         }
 
         // memoryDump[] 의 첫 4바이트는 덤프의 시작 주소.
-        private ListViewItem MakeVirtualItem(int i)
+        private ListViewItem MakeVirtualItemForDump(int i)
         {
             string[] tmp = new string[3];
 
@@ -961,7 +1028,6 @@ namespace MemoryExplorer
             }
             return new ListViewItem(tmp);
         }
-
 
         internal void ShowMemoryDump(uint address, byte type, byte secondType)
         {
@@ -1022,13 +1088,12 @@ namespace MemoryExplorer
         {
             try
             {
-                e.Item = MakeVirtualItem(e.ItemIndex);
+                e.Item = MakeVirtualItemForDump(e.ItemIndex);
             }
             catch
             {
                 lDump.Items.Clear();
-                lDump.VirtualListSize = 0;
-    
+                lDump.VirtualListSize = 0;    
             }
         }
 
@@ -1173,6 +1238,20 @@ namespace MemoryExplorer
                 return;
             }
 
+        }
+
+        private void lWorkingSetList_RetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
+        {
+            try
+            {
+                e.Item = MakeVirtualItemForWorkingSet(e.ItemIndex);
+            }
+            catch
+            {
+                lWorkingSetList.Items.Clear();
+                lWorkingSetList.VirtualListSize = 0;
+
+            }
         }
     }
 }
