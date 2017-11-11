@@ -1,8 +1,9 @@
 # MemoryExplorer
 
 Just a Verbatim Project.
-  It shows the data in the other process' virtual address or in Kernel address,
-  and allows to manipulate the data.
+  It shows the contents of memory in the other process' virtual address space or Kernel address space.
+  
+  It allows to manipulate the memory.
 
 
-### Apologize for my terrible english.
+#### Apologize for my terrible english.
