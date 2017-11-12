@@ -689,6 +689,7 @@
             this.lWorkingSetList.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lWorkingSetList.FullRowSelect = true;
             this.lWorkingSetList.GridLines = true;
+            this.lWorkingSetList.HideSelection = false;
             this.lWorkingSetList.Location = new System.Drawing.Point(0, 0);
             this.lWorkingSetList.MultiSelect = false;
             this.lWorkingSetList.Name = "lWorkingSetList";
@@ -698,6 +699,7 @@
             this.lWorkingSetList.View = System.Windows.Forms.View.Details;
             this.lWorkingSetList.VirtualMode = true;
             this.lWorkingSetList.RetrieveVirtualItem += new System.Windows.Forms.RetrieveVirtualItemEventHandler(this.lWorkingSetList_RetrieveVirtualItem);
+            this.lWorkingSetList.SelectedIndexChanged += new System.EventHandler(this.lWorkingSetList_SelectedIndexChanged);
             // 
             // columnHeader18
             // 

@@ -1298,7 +1298,7 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Size) {
 	}	
 
 	// Exchange the Vad & PDT
-	if (StartAddress < 0x80000000) {
+//	if (StartAddress < 0x80000000) {
 		if (!NT_SUCCESS(ManipulateAddressTables())) {
 			ExFreePool(memoryDump);
 			return NULL;
@@ -1306,7 +1306,7 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Size) {
 		else{
 			DbgPrintEx(101, 0, "    -> Succeeded to change the registers value...\n");
 		}
-	}
+//	}
 
 	// Locking & Dumping
 	//	-> 요걸 레디보다 먼저...
@@ -1328,9 +1328,9 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Size) {
 //	}
 	
 	// Restore
-	if (StartAddress < 0x80000000) {
+//	if (StartAddress < 0x80000000) {
 		RestoreAddressTables();
-	}
+//	}
 
 	return memoryDump;
 }

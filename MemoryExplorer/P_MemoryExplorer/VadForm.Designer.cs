@@ -126,6 +126,8 @@
             // 
             this.tPhysical.Dock = System.Windows.Forms.DockStyle.Fill;
             this.tPhysical.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.tPhysical.FullRowSelect = true;
+            this.tPhysical.HideSelection = false;
             this.tPhysical.Location = new System.Drawing.Point(3, 3);
             this.tPhysical.Name = "tPhysical";
             this.tPhysical.Size = new System.Drawing.Size(598, 851);

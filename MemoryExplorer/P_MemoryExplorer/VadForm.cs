@@ -801,7 +801,7 @@ namespace MemoryExplorer
 
                     if ((validFlag & 0x100) == 0x100)
                     {
-                        tPhysical.Nodes[tPhysical.Nodes.Count - 1].Nodes[tPhysical.Nodes[tPhysical.Nodes.Count - 1].Nodes.Count - 1]
+                        TreeNode pfnNode = tPhysical.Nodes[tPhysical.Nodes.Count - 1].Nodes[tPhysical.Nodes[tPhysical.Nodes.Count - 1].Nodes.Count - 1]
                             .Nodes[tPhysical.Nodes[tPhysical.Nodes.Count - 1].Nodes[tPhysical.Nodes[tPhysical.Nodes.Count - 1].Nodes.Count - 1].Nodes.Count - 1]
                             .Nodes.Add(String.Format("PFN : 0x{0:X6}", (uint)((details.PTEValue & 0xFFFFFF000) >> 12)));
 
@@ -832,13 +832,20 @@ namespace MemoryExplorer
                             }
                         }
                         //////////////////////////////////////////////////////////////////////////////////////////////////////
+                        if((selectedVirtualAddress & 0xFFF) != 0)
+                        {
+                            sFlags = String.Format("{0:X}", details.HIPhysicalAddress);
+                            if (sFlags.Length > 0)
+                                sFlags += "'";
+                            sFlags += String.Format("{0:X8}", (details.LOPhysicalAddress & 0xFFFFF000) + (selectedVirtualAddress & 0xFFF));
 
-                        sFlags = String.Format("{0:X}", details.HIPhysicalAddress);
-                        if (sFlags.Length > 0)
-                            sFlags += "'";
-                        sFlags += String.Format("{0:X8}", (details.LOPhysicalAddress & 0xFFFFF000) + (selectedVirtualAddress & 0xFFF));
-
-                        tPhysical.Nodes.Add("Physical Address : 0x" + sFlags);
+                            tPhysical.Nodes.Add("Physical Address : 0x" + sFlags);
+                        }
+                        else
+                        {
+                            tPhysical.Nodes[tPhysical.Nodes.Count - 1].ExpandAll();
+                            tPhysical.SelectedNode = pfnNode;
+                        }
                         return;
                     }
                     else
@@ -872,39 +879,43 @@ namespace MemoryExplorer
         }
 
         internal void ChangeVirtualAddress(uint v)
-        {            
-            if (v != 0)
+        {
+            if (!isProcessing)
             {
-                selectedVirtualAddress = v;
-                this.Text = String.Format("Virtual Address : 0x{0:X8}", selectedVirtualAddress);
-
-
-                tPhysical.Nodes.Clear();
-
-                MESSAGE_ENTRY buffer = new MESSAGE_ENTRY();
-                buffer.MessageType = selectedVirtualAddress;
-                if (GetAddressDetails(IOCTL_GET_PFN_DETAILS, ref buffer) == 1)
+                isProcessing = true;
+                if (v != 0)
                 {
-                    if(((buffer.MessageType) & 0x10000000) == 0x10000000)
-                        PfnDetailsParsing(buffer.Buffer, (ushort)((buffer.MessageType) & 0xFFF));
+                    selectedVirtualAddress = v;
+                    if ((selectedVirtualAddress & 0xFFF) == 0)
+                        this.Text = String.Format("VPN : 0x{0:X5}", (selectedVirtualAddress >> 12));
+                    else
+                        this.Text = String.Format("Virtual Address : 0x{0:X8}", selectedVirtualAddress);
+
+
+                    tPhysical.Nodes.Clear();
+
+                    MESSAGE_ENTRY buffer = new MESSAGE_ENTRY();
+                    buffer.MessageType = selectedVirtualAddress;
+                    if (GetAddressDetails(IOCTL_GET_PFN_DETAILS, ref buffer) == 1)
+                    {
+                        if (((buffer.MessageType) & 0x10000000) == 0x10000000)
+                        {
+                            PfnDetailsParsing(buffer.Buffer, (ushort)((buffer.MessageType) & 0xFFF));
+                            tabControl1.SelectedIndex = 1;
+                        }
+                        else
+                        {
+                            MessageBox.Show("Failed to get PFN Info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
                     else
                     {
-                        MessageBox.Show("Failed to get PFN Info.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        return;
+                        MessageBox.Show("Failed to get data for this V.A.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
-                else
-                {
-                    MessageBox.Show("Failed to get data for this V.A.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    
-                }
-
-                tabControl1.SelectedIndex = 1;
-            }
-            else
-                return;
                 
-
+                isProcessing = false;
+            }
         }
 
         internal void ChangeVad(uint v)

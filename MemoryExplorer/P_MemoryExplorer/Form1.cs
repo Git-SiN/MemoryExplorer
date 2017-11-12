@@ -527,8 +527,8 @@ namespace MemoryExplorer
                 if ((value & 0x1) == 0)
                 {
                     tmp[1] = " ## Free   ";
-                    tmp[1] += String.Format("Prev : 0x{0:X5}   ", (value & 0xFFE) + ((value & 0xFF000000) >> 12));       // Maybe...
-                    tmp[1] += String.Format("Next : 0x{0:X5}", ((value & 0xFFFFF000) >> 12));
+                    tmp[1] += String.Format("Next : 0x{0:X5}   ", ((value & 0xFFFFF000) >> 12));
+                    tmp[1] += String.Format("Prev : 0x{0:X}", ((value & 0xFFE) >> 1));       // Just same 11Bit with Previous Free Entry...
                 }
                 else
                 {
@@ -985,7 +985,6 @@ namespace MemoryExplorer
 
                             lMap.SelectedItems[0].BackColor = Color.LightCoral;
                         }
-
                     }
                 }
             }
@@ -1125,7 +1124,7 @@ namespace MemoryExplorer
             DialogResult result = editor.ShowDialog();
             if (result == DialogResult.OK)
             {
-                vadForm.ChangeVad(0);
+            //    vadForm.ChangeVad(0);
                 ShowMemoryDump(dumpStartAddress, IOCTL_MEMORY_DUMP_RANGE, 0);
                 //memoryManipulated = false;
             }
@@ -1253,5 +1252,46 @@ namespace MemoryExplorer
 
             }
         }
+
+        private void lWorkingSetList_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(this.bSelect.Text == "UnSelect")
+            {
+                if (lWorkingSetList.SelectedIndices.Count == 1)
+                {
+                    ListViewItem selected = lWorkingSetList.Items[lWorkingSetList.SelectedIndices[0]];
+                    if (selected.SubItems[1].Text.Contains("VPN"))
+                    {
+                        uint vpn = 0;
+                        try
+                        {
+                            vpn = uint.Parse(selected.SubItems[2].Text.Split(new char[] { 'x' })[1], System.Globalization.NumberStyles.HexNumber);
+                            vpn = (vpn & 0xFFFFF000);
+                        }
+                        catch (Exception)
+                        {
+                            return;
+                        }
+
+                        if ((vadForm == null) || (vadForm.IsDisposed))
+                        {
+                            vadForm = new VadForm(vpn, this, 1);
+                            vadForm.Show();
+                        }
+                        else
+                        {
+                            if (!(vadForm.isProcessing))
+                            {
+                                vadForm.ChangeVirtualAddress(vpn);
+                                //vadForm.Focus();
+                            }
+                        }
+                    }
+                }
+            }            
+        }
+
+
+        // END
     }
 }
