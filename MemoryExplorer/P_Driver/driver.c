@@ -1296,41 +1296,30 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Size) {
 		DbgPrintEx(101, 0, "    -> Failed to allocate pool for dumping the memory...\n");
 		return NULL;
 	}	
+	RtlZeroMemory(memoryDump, Size);
 
 	// Exchange the Vad & PDT
-//	if (StartAddress < 0x80000000) {
-		if (!NT_SUCCESS(ManipulateAddressTables())) {
-			ExFreePool(memoryDump);
-			return NULL;
-		}
-		else{
-			DbgPrintEx(101, 0, "    -> Succeeded to change the registers value...\n");
-		}
-//	}
-
-	// Locking & Dumping
-	//	-> 요걸 레디보다 먼저...
-	/*memoryDump = ExAllocatePool(NonPagedPool, Size);
-	if (memoryDump == NULL) {
-		DbgPrintEx(101, 0, "    -> Failed to allocate pool for dumping the memory...\n");
+	if (!NT_SUCCESS(ManipulateAddressTables())) {
+		ExFreePool(memoryDump);
+		memoryDump = NULL;
 	}
-	else {*/
-		__try {
+	else{
+		DbgPrintEx(101, 0, "    -> Succeeded to change the registers value...\n");
 
+		// Locking & Dumping
+		__try {
 			RtlCopyMemory(memoryDump, (PUCHAR)StartAddress, Size);
+			DbgPrintEx(101, 0, "    -> Succeeded to dump...\n");
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
 			ExFreePool(memoryDump);
 			memoryDump = NULL;
 			DbgPrintEx(101, 0, "    -> Failed to locking the memory...\n");
 		}
-		DbgPrintEx(101, 0, "    -> Succeeded to dump...\n");
-//	}
-	
-	// Restore
-//	if (StartAddress < 0x80000000) {
+
+		// Restore
 		RestoreAddressTables();
-//	}
+	}
 
 	return memoryDump;
 }
@@ -1525,21 +1514,30 @@ ULONG GetMemoryDump(ULONG ctlCode, PMMVAD pVad, PUCHAR buffer) {
 NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 	PVOID startAddress = NULL;
 	ULONG length = 0;
+	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 
 	startAddress = (PVOID)*(PULONG)pBuffer;
 	length = *(PULONG)(pBuffer + 4);
-
-	__try {
-		RtlCopyMemory(startAddress, pBuffer + 8, length);
-		DbgPrintEx(101, 0, "Manipulate Succeeded...\n");
-		return STATUS_SUCCESS;
-	}
-	__except (EXCEPTION_EXECUTE_HANDLER) {
-		DbgPrintEx(101, 0, "[ERROR] Failed to manipulate memory...\n");
-		DbgPrintEx(101, 0, "    -> CODE : 0x%08X\n", GetExceptionCode());
-		return STATUS_UNSUCCESSFUL;
+	
+	if ((startAddress == NULL) || (length > 16)) {
+		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in ManipulateMemory()...\n");
+		return ntStatus;
 	}
 
+	if (NT_SUCCESS(ManipulateAddressTables())) {
+		__try {	
+			RtlCopyMemory(startAddress, pBuffer + 8, length);
+			DbgPrintEx(101, 0, "Manipulate Succeeded...\n");
+			ntStatus = STATUS_SUCCESS;
+		}
+		__except (EXCEPTION_EXECUTE_HANDLER) {
+				DbgPrintEx(101, 0, "[ERROR] Failed to manipulate memory...\n");
+				DbgPrintEx(101, 0, "    -> CODE : 0x%08X\n", GetExceptionCode());
+		}
+		RestoreAddressTables();
+	}
+	
+	return ntStatus;
 }
 
 // MessageType : address
