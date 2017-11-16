@@ -1519,7 +1519,7 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 	startAddress = (PVOID)*(PULONG)pBuffer;
 	length = *(PULONG)(pBuffer + 4);
 	
-	if ((startAddress == NULL) || (length > 16)) {
+	if ((startAddress == NULL) || (length == 0) || (length > 4096)) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in ManipulateMemory()...\n");
 		return ntStatus;
 	}

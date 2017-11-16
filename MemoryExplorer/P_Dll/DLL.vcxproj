@@ -150,6 +150,9 @@
   <ItemGroup>
     <ClInclude Include="..\Headers\dll.h" />
   </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dll.c" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
