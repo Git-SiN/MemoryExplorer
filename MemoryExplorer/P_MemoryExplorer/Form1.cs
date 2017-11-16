@@ -1103,8 +1103,7 @@ namespace MemoryExplorer
                 MessageBox.Show("Select a line.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
-
-
+            
             ListViewItem selected = lDump.Items[lDump.SelectedIndices[0]];
             uint address = 0;
             uint count = 0;
@@ -1119,8 +1118,19 @@ namespace MemoryExplorer
                 return;
             }
 
+            Form editor = null;
 
-            Editor editor = new Editor(this, address, count);
+            if(((ToolStripMenuItem)sender).Text == "Direct")
+            {
+                editor = new Editor(this, address, count);
+            }
+            else if(((ToolStripMenuItem)sender).Text == "Indirect")
+            {
+                if (count == 16)
+                    count = dumpLength + dumpStartAddress - address;
+
+          //      editor = new IndirectInput(this, address, count, selected.SubItems[1].Text.Trim());
+            }
             DialogResult result = editor.ShowDialog();
             if (result == DialogResult.OK)
             {
@@ -1290,6 +1300,7 @@ namespace MemoryExplorer
                 }
             }            
         }
+
 
 
         // END

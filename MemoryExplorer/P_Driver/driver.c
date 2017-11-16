@@ -153,7 +153,6 @@ NTSTATUS ManipulateAddressTables() {
 		__asm {
 			push eax;
 
-
 			mov eax, backedCR3;
 			mov cr3, eax;
 
@@ -1516,10 +1515,10 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 	ULONG length = 0;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 
-	startAddress = (PVOID)*(PULONG)pBuffer;
+	startAddress = (PVOID)(*(PULONG)pBuffer);
 	length = *(PULONG)(pBuffer + 4);
 	
-	if ((startAddress == NULL) || (length > 16)) {
+	if ((startAddress == NULL) || (length == 0) || (length > 4096)) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in ManipulateMemory()...\n");
 		return ntStatus;
 	}
