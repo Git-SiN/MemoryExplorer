@@ -1120,16 +1120,14 @@ namespace MemoryExplorer
             }
 
             Form manipulateForm = null;
-            if (((ToolStripMenuItem)sender).Text == "Direct")
+            if (((ToolStripMenuItem)sender).Text == "by Direct")
             {
                 manipulateForm = new Editor(this, address, count);
 
             }
-            else if (((ToolStripMenuItem)sender).Text == "Direct")
+            else if (((ToolStripMenuItem)sender).Text == "by Editor")
             {
-                if (count > 16)
-                    count = dumpLength + dumpStartAddress - address;
-                manipulateForm = new IndirectInput(this, address, count, selected.SubItems[1].Text.Trim());
+                manipulateForm = new IndirectInput(this, address, dumpLength + dumpStartAddress - address, selected.SubItems[1].Text.Trim());
             }
             else
                 return;
@@ -1300,6 +1298,28 @@ namespace MemoryExplorer
                     }
                 }
             }            
+        }
+
+        private void tabControl1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            string tab = tabControl1.TabPages[tabControl1.SelectedIndex].Text.Split(new char[] { ' ' })[0];
+
+            switch (tab)
+            {
+                case "VAD":
+                    lMap.Focus();
+                    break;
+                case "Dump":
+                    tDump.Focus();
+                    break;
+                case "Handles":
+                    lHandles.Focus();
+                    break;
+                default:
+                    return;
+            }
+
+
         }
 
 

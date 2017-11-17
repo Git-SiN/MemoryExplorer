@@ -1524,10 +1524,6 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 		return ntStatus;
 	}
 
-	// For Test...
-	DbgPrintEx(101, 0, ":::: Start Address : 0x%08X [%d]\n", (ULONG)startAddress, length);
-	return STATUS_SUCCESS;
-
 	if (NT_SUCCESS(ManipulateAddressTables())) {
 		__try {	
 			RtlCopyMemory(startAddress, pBuffer + 8, length);
@@ -1535,8 +1531,8 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 			ntStatus = STATUS_SUCCESS;
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
-				DbgPrintEx(101, 0, "[ERROR] Failed to manipulate memory...\n");
-				DbgPrintEx(101, 0, "    -> CODE : 0x%08X\n", GetExceptionCode());
+			DbgPrintEx(101, 0, "[ERROR] Failed to manipulate memory...\n");
+			DbgPrintEx(101, 0, "    -> CODE : 0x%08X\n", GetExceptionCode());
 		}
 		RestoreAddressTables();
 	}

@@ -40,7 +40,10 @@ namespace MemoryExplorer
 
             tMessage.Text = "";
             if (firstLine.Length > 0)
+            {
                 tInput.Text = firstLine;
+                tInput_TextChanged(this, null);
+            }
 
             this.Text += string.Format("Start Address : 0x{0:X8}", startAddress);
         }
@@ -170,9 +173,13 @@ namespace MemoryExplorer
             else
             {
                 tSize.Text = string.Format("Size :   {0} bytes / {1} bytes", currentSize / 2, maximumLength);
-                if (currentSize >= maximumLength)
-                    tSize.ForeColor = Color.Red;
             }
+
+            // Express Exceeding
+            if (currentSize >= maximumLength)
+                tSize.ForeColor = Color.Red;
+            else
+                tSize.ForeColor = Color.Black;
         }
     }
 }

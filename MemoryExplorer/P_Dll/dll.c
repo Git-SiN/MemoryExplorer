@@ -38,7 +38,7 @@ BOOLEAN ManipulateMemory(ULONG startAddress, ULONG length, PUCHAR buffer) {
 	ULONG received = 0;
 	OVERLAPPED manipulateOverlapped;
 
-	if ((startAddress == 0) || (startAddress > 0xFFFFFFF0) || (length == 0) || (length > 4096))
+	if ((startAddress == 0) || (length == 0) || (length > 4096) || ((startAddress + length) <= startAddress))
 		return FALSE;
 
 	ZeroMemory(&manipulateOverlapped, sizeof(OVERLAPPED));
