@@ -1524,6 +1524,10 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 		return ntStatus;
 	}
 
+	// For Test...
+	DbgPrintEx(101, 0, ":::: Start Address : 0x%08X [%d]\n", (ULONG)startAddress, length);
+	return STATUS_SUCCESS;
+
 	if (NT_SUCCESS(ManipulateAddressTables())) {
 		__try {	
 			RtlCopyMemory(startAddress, pBuffer + 8, length);

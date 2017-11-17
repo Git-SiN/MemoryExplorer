@@ -65,6 +65,12 @@
     <Compile Include="HexViewerConfig.designer.cs">
       <DependentUpon>HexViewerConfig.cs</DependentUpon>
     </Compile>
+    <Compile Include="IndirectInput.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="IndirectInput.Designer.cs">
+      <DependentUpon>IndirectInput.cs</DependentUpon>
+    </Compile>
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="VadForm.cs">
@@ -81,6 +87,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="HexViewerConfig.resx">
       <DependentUpon>HexViewerConfig.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="IndirectInput.resx">
+      <DependentUpon>IndirectInput.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
