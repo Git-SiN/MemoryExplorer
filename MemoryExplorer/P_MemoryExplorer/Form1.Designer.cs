@@ -77,8 +77,10 @@
             this.toolStrip1 = new System.Windows.Forms.ToolStrip();
             this.toolStripLabel1 = new System.Windows.Forms.ToolStripLabel();
             this.tDump = new System.Windows.Forms.ToolStripTextBox();
-            this.bManipulate = new System.Windows.Forms.ToolStripButton();
             this.bDump = new System.Windows.Forms.ToolStripButton();
+            this.bManipulate = new System.Windows.Forms.ToolStripDropDownButton();
+            this.bDirect = new System.Windows.Forms.ToolStripMenuItem();
+            this.bIndirect = new System.Windows.Forms.ToolStripMenuItem();
             this.tabPage6 = new System.Windows.Forms.TabPage();
             this.lFinder = new System.Windows.Forms.ListView();
             this.columnHeader16 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
@@ -528,8 +530,8 @@
             this.toolStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.toolStripLabel1,
             this.tDump,
-            this.bManipulate,
-            this.bDump});
+            this.bDump,
+            this.bManipulate});
             this.toolStrip1.Location = new System.Drawing.Point(3, 3);
             this.toolStrip1.Name = "toolStrip1";
             this.toolStrip1.Size = new System.Drawing.Size(1164, 33);
@@ -551,19 +553,6 @@
             this.tDump.Size = new System.Drawing.Size(100, 33);
             this.tDump.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tDump_KeyPress);
             // 
-            // bManipulate
-            // 
-            this.bManipulate.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
-            this.bManipulate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
-            this.bManipulate.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.bManipulate.ForeColor = System.Drawing.Color.Red;
-            this.bManipulate.Image = ((System.Drawing.Image)(resources.GetObject("bManipulate.Image")));
-            this.bManipulate.ImageTransparentColor = System.Drawing.Color.Magenta;
-            this.bManipulate.Name = "bManipulate";
-            this.bManipulate.Size = new System.Drawing.Size(136, 30);
-            this.bManipulate.Text = "Manipulate";
-            this.bManipulate.Click += new System.EventHandler(this.bManipulate_Click);
-            // 
             // bDump
             // 
             this.bDump.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
@@ -575,6 +564,36 @@
             this.bDump.Size = new System.Drawing.Size(64, 30);
             this.bDump.Text = "Dump";
             this.bDump.Click += new System.EventHandler(this.bDump_Click);
+            // 
+            // bManipulate
+            // 
+            this.bManipulate.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
+            this.bManipulate.DisplayStyle = System.Windows.Forms.ToolStripItemDisplayStyle.Text;
+            this.bManipulate.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.bDirect,
+            this.bIndirect});
+            this.bManipulate.Font = new System.Drawing.Font("Consolas", 11F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.bManipulate.ForeColor = System.Drawing.Color.Red;
+            this.bManipulate.Image = ((System.Drawing.Image)(resources.GetObject("bManipulate.Image")));
+            this.bManipulate.ImageTransparentColor = System.Drawing.Color.Magenta;
+            this.bManipulate.Name = "bManipulate";
+            this.bManipulate.Size = new System.Drawing.Size(150, 30);
+            this.bManipulate.Text = "Manipulate";
+            // 
+            // bDirect
+            // 
+            this.bDirect.ForeColor = System.Drawing.Color.Red;
+            this.bDirect.Name = "bDirect";
+            this.bDirect.Size = new System.Drawing.Size(205, 30);
+            this.bDirect.Text = "by Direct";
+            // 
+            // bIndirect
+            // 
+            this.bIndirect.ForeColor = System.Drawing.Color.Red;
+            this.bIndirect.Name = "bIndirect";
+            this.bIndirect.Size = new System.Drawing.Size(205, 30);
+            this.bIndirect.Text = "by Editor";
+            this.bIndirect.Click += new System.EventHandler(this.bManipulate_Click);
             // 
             // tabPage6
             // 
@@ -794,7 +813,6 @@
         private System.Windows.Forms.ColumnHeader columnHeader3;
         private System.Windows.Forms.TabPage tabPage5;
         private System.Windows.Forms.ToolStrip toolStrip1;
-        private System.Windows.Forms.ToolStripButton bManipulate;
         private System.Windows.Forms.ColumnHeader columnHeader12;
         private System.Windows.Forms.ColumnHeader columnHeader11;
         private System.Windows.Forms.ColumnHeader columnHeader10;
@@ -828,6 +846,9 @@
         private System.Windows.Forms.ListView lWorkingSetSummary;
         private System.Windows.Forms.ColumnHeader columnHeader24;
         private System.Windows.Forms.ColumnHeader columnHeader25;
+        private System.Windows.Forms.ToolStripMenuItem bDirect;
+        private System.Windows.Forms.ToolStripMenuItem bIndirect;
+        private System.Windows.Forms.ToolStripDropDownButton bManipulate;
     }
 }
 

@@ -36,7 +36,7 @@ namespace MemoryExplorer
             this.Width = 650;
             this.Height = 400;
 
-            tSize.Text = string.Format("Inputted :  0 bytes / {0} bytes", maximumLength);
+            //tSize.Text = string.Format("Inputted :  0 bytes / {0} bytes", maximumLength);
 
             tMessage.Text = "";
             if (firstLine.Length > 0)

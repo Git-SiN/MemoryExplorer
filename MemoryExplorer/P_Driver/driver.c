@@ -1531,7 +1531,7 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 	if (NT_SUCCESS(ManipulateAddressTables())) {
 		__try {	
 			RtlCopyMemory(startAddress, pBuffer + 8, length);
-			DbgPrintEx(101, 0, "Manipulate Succeeded...\n");
+			DbgPrintEx(101, 0, "Manipulation Succeeded...\n");
 			ntStatus = STATUS_SUCCESS;
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {

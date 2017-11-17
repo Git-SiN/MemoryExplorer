@@ -1119,15 +1119,26 @@ namespace MemoryExplorer
                 return;
             }
 
+            Form manipulateForm = null;
+            if (((ToolStripMenuItem)sender).Text == "Direct")
+            {
+                manipulateForm = new Editor(this, address, count);
 
-            Editor editor = new Editor(this, address, count);
-            DialogResult result = editor.ShowDialog();
+            }
+            else if (((ToolStripMenuItem)sender).Text == "Direct")
+            {
+                if (count > 16)
+                    count = dumpLength + dumpStartAddress - address;
+                manipulateForm = new IndirectInput(this, address, count, selected.SubItems[1].Text.Trim());
+            }
+            else
+                return;
+
+            DialogResult result = manipulateForm.ShowDialog();
             if (result == DialogResult.OK)
             {
-            //    vadForm.ChangeVad(0);
                 ShowMemoryDump(dumpStartAddress, IOCTL_MEMORY_DUMP_RANGE, 0);
-                //memoryManipulated = false;
-            }
+             }
             else
             {
                 return;
@@ -1290,6 +1301,7 @@ namespace MemoryExplorer
                 }
             }            
         }
+
 
 
         // END
