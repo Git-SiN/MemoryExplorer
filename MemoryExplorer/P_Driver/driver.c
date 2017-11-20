@@ -898,6 +898,7 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 	PMMWSL pMmWsl = NULL;
 	PUCHAR copied = NULL;
 	ULONG i = 0;
+	PVOID mappedAddress = NULL;
 	
 	if (pExtension->pTargetObject == NULL) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in WorkingSetListMaker()...\n");
@@ -915,18 +916,20 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 	////////////////////////////////////////////////////////////////////////////////////////////////////////
 	////////////////////////////////		 Dump the MMWSL Structure		////////////////////////////////
 	////////////////////////////////////////////////////////////////////////////////////////////////////////	 
-	if (!NT_SUCCESS(ManipulateAddressTables())) {
+	mappedAddress = LockAndMapMemory((ULONG)pMmWsl, sizeof(ULONG) * 18, IoReadAccess);
+	if (mappedAddress == NULL) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in WorkingSetListMaker()...\n");
 	}
 	else {
 		__try {
-			RtlCopyMemory((pMessage->Message.Buffer) + 4, pMmWsl, sizeof(ULONG) * 18);
+			RtlCopyMemory((pMessage->Message.Buffer) + 4, mappedAddress, sizeof(ULONG) * 18);
 			ntStatus = STATUS_SUCCESS;
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
 			DbgPrintEx(101, 0, "[ERROR] EXCEPTION occured in WorkingSetListMaker()\n");
 		}
-		RestoreAddressTables();
+		UnMapAndUnLockMemory(mappedAddress);
+		mappedAddress = NULL;
 	}
 	
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -943,26 +946,29 @@ NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessag
 		else {
 			RtlZeroMemory(copied, count * sizeof(ULONG));
 
-			if (!NT_SUCCESS(ManipulateAddressTables())) {
+			mappedAddress = LockAndMapMemory(((PMMWSL)((pMessage->Message.Buffer) + 4))->Wsle, count * sizeof(ULONG), IoReadAccess);
+			if (mappedAddress == NULL) {
 				DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in WorkingSetListMaker()...\n");
 				ExFreePool(copied);
 				copied = NULL;
 			}
 			else {
 				__try {
-					if (pMmWsl->Wsle != NULL) {
-						pMmWsl = (PMMWSL)(pMmWsl->Wsle);		// Reuse the value "pMmWsl".
-						RtlCopyMemory((PULONG)copied, (PULONG)pMmWsl, count * sizeof(ULONG));
-						ntStatus = STATUS_SUCCESS;
-					}
+					RtlCopyMemory((PULONG)copied, mappedAddress, count * sizeof(ULONG));
+					ntStatus = STATUS_SUCCESS;
+					
 				}
 				__except (EXCEPTION_EXECUTE_HANDLER) {
 					DbgPrintEx(101, 0, "[ERROR] EXCEPTION occured in WorkingSetListMaker()\n");
+				}
+
+				UnMapAndUnLockMemory(mappedAddress);
+
+				if (!NT_SUCCESS(ntStatus)) {
 					ExFreePool(copied);
 					copied = NULL;
 					count = 0;
 				}
-				RestoreAddressTables();
 			}
 		}		
 	}
@@ -1364,7 +1370,7 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 				ntStatus = STATUS_SUCCESS;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
-				DgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
+				DbgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
 			}
 		
 			UnMapAndUnLockMemory(mappedAddress);
@@ -1620,7 +1626,8 @@ NTSTATUS GetPFNDetails(PTARGET_OBJECT pTargetObject, PMESSAGE_ENTRY buffer) {
 	}
 	pDetails = buffer->Buffer;
 	RtlZeroMemory(buffer, sizeof(MESSAGE_ENTRY));
-	if (!NT_SUCCESS(ManipulateAddressTables())) {
+
+	if (!NT_SUCCESS(ManipulateAddressTables(pMyDevice->DeviceExtension))) {
 		DbgPrintEx(101, 0, "[ERROR] Failed to Ready for sniff...\n");
 		return ntStatus;
 	}
