@@ -40,8 +40,8 @@ typedef struct _TARGET_OBJECT {
 typedef struct _SNIFF_OBJECT {
 	ULONG backedEthread;
 	ULONG backedEprocess;
-	//ULONG backedVadRoot;
 	ULONG backedCR3;
+	PMDL pUsingMdl;
 	ULONG backedHyperPte;
 }SNIFF_OBJECT, *PSNIFF_OBJECT;
 
@@ -67,11 +67,9 @@ typedef struct _MESSAGE_LIST {
 
 PVOID NTAPI ObGetObjectType(PVOID pObject);
 
-NTSTATUS ManipulateAddressTables() {
+NTSTATUS ManipulateAddressTables(PDEVICE_EXTENSION pExtension) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
-	PDEVICE_EXTENSION pExtension = pMyDevice->DeviceExtension;
 	ULONG backedCR3 = 0;
-	//ULONG backedVadRoot = 0;
 	ULONG backedEprocess = 0;
 	ULONG backedEthread = 0;
 
@@ -108,12 +106,7 @@ NTSTATUS ManipulateAddressTables() {
 			add eax, KTHREAD_OFFSET_KPROCESS;
 			mov eax, [eax];
 			mov backedEprocess, eax;
-
-			// Backup the current process' VADRoot.			// -> Remove
-			/*add eax, EPROC_OFFSET_VadRoot;
-			mov eax, [eax];
-			mov backedVadRoot, eax;*/
-
+			
 			// Backup the register CR3.
 			mov eax, cr3;
 			mov backedCR3, eax;
@@ -131,7 +124,6 @@ NTSTATUS ManipulateAddressTables() {
 			return ntStatus;
 		}
 
-		//pExtension->pSniffObject->backedVadRoot = backedVadRoot;
 		pExtension->pSniffObject->backedEprocess = backedEprocess;
 		pExtension->pSniffObject->backedCR3 = backedCR3;
 		pExtension->pSniffObject->backedEthread = backedEthread;
@@ -140,8 +132,7 @@ NTSTATUS ManipulateAddressTables() {
 		////////////////////////////////////////////////////////////////////////////
 		////////////////////////		Manipulation		////////////////////////
 		////////////////////////////////////////////////////////////////////////////
-		//	*(PULONG)((pExtension->pSniffObject->backedEprocess) + EPROC_OFFSET_VadRoot) = pExtension->pTargetObject->pVadRoot;
-
+		
 		// Change the current thread's KPROCESS.
 		*(PULONG)((pExtension->pSniffObject->backedEthread) + KTHREAD_OFFSET_KPROCESS) = pExtension->pTargetObject->pEprocess;
 
@@ -152,8 +143,7 @@ NTSTATUS ManipulateAddressTables() {
 	
 		__asm {
 			push eax;
-
-
+			
 			mov eax, backedCR3;
 			mov cr3, eax;
 
@@ -177,7 +167,6 @@ NTSTATUS ManipulateAddressTables() {
 	return STATUS_SUCCESS;
 }
 
-
 VOID RestoreAddressTables() {
 	PDEVICE_EXTENSION pExtension = pMyDevice->DeviceExtension;
 	ULONG backedEthread = 0;
@@ -191,9 +180,7 @@ VOID RestoreAddressTables() {
 		backedCR3 = pExtension->pSniffObject->backedCR3;
 
 		__try {
-			// Removed this field...
-			//*(PULONG)(backedEprocess + EPROC_OFFSET_VadRoot) = pExtension->pSniffObject->backedVadRoot;
-
+		
 			// Restore the backup thread's KPROCESS.
 			*(PULONG)(backedEthread + KTHREAD_OFFSET_KPROCESS) = backedEprocess;
 
@@ -242,6 +229,76 @@ VOID RestoreAddressTables() {
 		return;
 	}
 
+}
+
+PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operation) {
+	PVOID mappedAddress = NULL;
+	PDEVICE_EXTENSION pExtension = NULL;
+
+	// Exchange the Vad & PDT
+	if (NT_SUCCESS(ManipulateAddressTables(pExtension))) {
+
+		// Allocate the MDL.
+		pExtension->pSniffObject->pUsingMdl = MmCreateMdl(NULL, (PVOID)StartAddress, (SIZE_T)Length);
+		if ((pExtension->pSniffObject->pUsingMdl) != NULL) {
+			// Lock the MDL.
+			__try {
+				MmProbeAndLockPages(pExtension->pSniffObject->pUsingMdl, KernelMode, Operation);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER) {
+				IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
+				pExtension->pSniffObject->pUsingMdl = NULL;
+				DbgPrintEx(101, 0, "    -> Failed to lock the memory...\n");
+			}
+
+			// Mapping to System Address.
+			if ((pExtension->pSniffObject->pUsingMdl) != NULL) {
+				mappedAddress = MmMapLockedPages(pExtension->pSniffObject->pUsingMdl, KernelMode);
+				if (mappedAddress) {
+					pExtension->pSniffObject->pUsingMdl->MdlFlags |= MDL_MAPPED_TO_SYSTEM_VA;
+					return mappedAddress;
+				}
+				else {
+					IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
+					pExtension->pSniffObject->pUsingMdl = NULL;
+				}
+			}
+		}
+
+		// Failed.
+		RestoreAddressTables();
+	}
+
+	return mappedAddress;
+}
+
+VOID UnMapAndUnLockMemory(PVOID mappedAddress) {
+	PDEVICE_EXTENSION pExtension = pMyDevice->DeviceExtension;
+
+	if (pExtension && pExtension->pSniffObject) {
+		if (pExtension->pSniffObject->pUsingMdl) {
+
+			// Unmap.
+			if ((pExtension->pSniffObject->pUsingMdl->MdlFlags) & MDL_MAPPED_TO_SYSTEM_VA) {
+				MmUnmapLockedPages(mappedAddress, pExtension->pSniffObject->pUsingMdl);
+			}
+			
+			// Unlock the MDL.
+			__try {
+				MmUnlockPages(pExtension->pSniffObject->pUsingMdl);
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER) {
+				DbgPrintEx(101, 0, "[ERROR] Failed to unlock the MDL...\n");
+				// In this case, just proceed...
+			}
+
+			// Free the MDL.
+			IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
+			pExtension->pSniffObject->pUsingMdl = NULL;
+		}
+
+		RestoreAddressTables();
+	}
 }
 
 VOID ListCleaner(PLIST_ENTRY pListEntry, PKSPIN_LOCK pLock) {
@@ -1285,40 +1342,38 @@ NTSTATUS GetVadDetails(ULONG type, PMESSAGE_ENTRY pMessage) {
 	}	
 }
 
-PUCHAR MemoryDumping(ULONG StartAddress, ULONG Size) {
+PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 	PUCHAR memoryDump = NULL;
+	PVOID mappedAddress = NULL;
+	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 
-	DbgPrintEx(101, 0, "::: Dumping the Address : 0x%08X [%X]\n", StartAddress, Size);
+	DbgPrintEx(101, 0, "::: Dumping the Address : 0x%08X [%X]\n", StartAddress, Length);
 
-	// 메모리 할당을 다른 프로세스의 VAD와 PDT 상태로 해서, 프로그램 종료시 메모리 오염 뜨는듯..
-	memoryDump = ExAllocatePool(NonPagedPool, Size);
+	// Allocate the Pool before corrupt the current VAD & PDT.
+	memoryDump = ExAllocatePool(NonPagedPool, Length);
 	if (memoryDump == NULL) {
 		DbgPrintEx(101, 0, "    -> Failed to allocate pool for dumping the memory...\n");
-		return NULL;
 	}	
-	RtlZeroMemory(memoryDump, Size);
+	else {
+		RtlZeroMemory(memoryDump, Length);
 
-	// Exchange the Vad & PDT
-	if (!NT_SUCCESS(ManipulateAddressTables())) {
+		mappedAddress = LockAndMapMemory(StartAddress, Length, IoReadAccess);
+		if (mappedAddress != NULL){
+			__try {
+				RtlCopyMemory(memoryDump, mappedAddress, Length);
+				ntStatus = STATUS_SUCCESS;
+			}
+			__except (EXCEPTION_EXECUTE_HANDLER) {
+				DgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
+			}
+		
+			UnMapAndUnLockMemory(mappedAddress);
+		}
+	}
+
+	if (!NT_SUCCESS(ntStatus)) {
 		ExFreePool(memoryDump);
 		memoryDump = NULL;
-	}
-	else{
-		DbgPrintEx(101, 0, "    -> Succeeded to change the registers value...\n");
-
-		// Locking & Dumping
-		__try {
-			RtlCopyMemory(memoryDump, (PUCHAR)StartAddress, Size);
-			DbgPrintEx(101, 0, "    -> Succeeded to dump...\n");
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER) {
-			ExFreePool(memoryDump);
-			memoryDump = NULL;
-			DbgPrintEx(101, 0, "    -> Failed to locking the memory...\n");
-		}
-
-		// Restore
-		RestoreAddressTables();
 	}
 
 	return memoryDump;
@@ -1513,6 +1568,7 @@ ULONG GetMemoryDump(ULONG ctlCode, PMMVAD pVad, PUCHAR buffer) {
 
 NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 	PVOID startAddress = NULL;
+	PVOID mappedAddress = NULL;
 	ULONG length = 0;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 
@@ -1523,10 +1579,11 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in ManipulateMemory()...\n");
 		return ntStatus;
 	}
-
-	if (NT_SUCCESS(ManipulateAddressTables())) {
+	
+	mappedAddress = LockAndMapMemory(startAddress, length, IoWriteAccess);
+	if (mappedAddress != NULL) {
 		__try {	
-			RtlCopyMemory(startAddress, pBuffer + 8, length);
+			RtlCopyMemory(mappedAddress, pBuffer + 8, length);
 			DbgPrintEx(101, 0, "Manipulation Succeeded...\n");
 			ntStatus = STATUS_SUCCESS;
 		}
@@ -1534,7 +1591,8 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 			DbgPrintEx(101, 0, "[ERROR] Failed to manipulate memory...\n");
 			DbgPrintEx(101, 0, "    -> CODE : 0x%08X\n", GetExceptionCode());
 		}
-		RestoreAddressTables();
+
+		UnMapAndUnLockMemory(mappedAddress);
 	}
 	
 	return ntStatus;
