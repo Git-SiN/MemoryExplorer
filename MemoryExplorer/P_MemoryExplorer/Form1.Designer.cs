@@ -499,7 +499,7 @@
             this.columnHeader12});
             this.lDump.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lDump.FullRowSelect = true;
-            this.lDump.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
+            this.lDump.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
             this.lDump.HideSelection = false;
             this.lDump.Location = new System.Drawing.Point(3, 36);
             this.lDump.Name = "lDump";
@@ -585,8 +585,9 @@
             // 
             this.bDirect.ForeColor = System.Drawing.Color.Red;
             this.bDirect.Name = "bDirect";
-            this.bDirect.Size = new System.Drawing.Size(205, 30);
+            this.bDirect.Size = new System.Drawing.Size(211, 30);
             this.bDirect.Text = "by Direct";
+            this.bDirect.Click += new System.EventHandler(this.bManipulate_Click);
             // 
             // bIndirect
             // 

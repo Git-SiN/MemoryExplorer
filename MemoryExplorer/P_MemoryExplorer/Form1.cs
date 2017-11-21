@@ -713,23 +713,6 @@ namespace MemoryExplorer
         }
 
 
-        //private void QueryProcessList()
-        //{
-        //    PROCESS_ENTRY newEntry;
-        //    processList.Clear();
-
-        //    while (true)
-        //    {
-        //        newEntry = new PROCESS_ENTRY();
-        //        if (1 == ReadMessage(ref newEntry, 35))
-        //            processList.Add(newEntry);
-        //        else
-        //            break;
-        //    }
-        //    return;
-        //    //Process[] lists = Process.GetProcesses();
-        //}
-
         private bool InitDevice()
         {
             int errCode = 0;
@@ -783,7 +766,6 @@ namespace MemoryExplorer
             if((CommunicationThread != null) && ((CommunicationThread.ThreadState & System.Threading.ThreadState.Running) == System.Threading.ThreadState.Running)){
                 quitCommunicationThread = true;
                 CancelPendingIrp();
-              //  CommunicationThread.Join();
             }
 
             if (DisConnect() == 1)
@@ -807,58 +789,6 @@ namespace MemoryExplorer
                 }
                 else
                 {
-                    //   MessageBox.Show(Convert.ToInt32(cProcesses.Text.Split(new char[] { '[', ']' })[1]).ToString());
-
-                    // 선택한 프로세스가 살아있는지 검사하는거, 이거땜에 시스템 프로세스가 액세스 거절 뜬다.
-                    //   -> 어짜피 프로세스 죽으면 드라이버가 EPROCESS 못찾으니, 검사하지말자.
-                    // 만약 선택했는데 해당 프로세스가 죽었다면, Refresh로 바꾸기.
-                    //Process selectedProcess = null;
-                    //try
-                    //{
-                    //    selectedProcess = Process.GetProcessById(Convert.ToInt32(cProcesses.Text.Split(new char[] { '[', ']' })[1]));
-                    //}
-                    //catch (ArgumentException err)
-                    //{
-                    //    MessageBox.Show(err.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    //    bSelect.Text = "Refresh";
-                    //    if (GetProcessList())
-                    //    {
-                    //        bSelect.Text = "Select";
-
-                    //        cProcesses.DroppedDown = true;
-                    //        cProcesses.Focus();
-                    //    }
-                    //    return;
-                    //}
-                    //catch (InvalidOperationException err)
-                    //{
-                    //    MessageBox.Show(err.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    //    bSelect.Text = "Refresh";
-                    //    if (GetProcessList())
-                    //    {
-                    //        bSelect.Text = "Select";
-
-                    //        cProcesses.DroppedDown = true;
-                    //        cProcesses.Focus();
-                    //    }
-                    //    return;
-                    //}
-
-                    //if ((selectedProcess.HasExited) || !(cProcesses.Text.Contains(selectedProcess.ProcessName)))
-                    //{
-                    //    MessageBox.Show("Selected process is not exist.\n    -> Refreshing...", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    //    bSelect.Text = "Refresh";
-                    //    if (GetProcessList())
-                    //    {
-                    //        bSelect.Text = "Select";
-
-                    //        cProcesses.DroppedDown = true;
-                    //        cProcesses.Focus();
-                    //    }
-                    //    return;
-                    //}
-                    //else
-                    //{
                     lMap.Items.Clear();
                     tabControl1.TabPages[1].Text = "VAD Map";
 
@@ -1311,6 +1241,7 @@ namespace MemoryExplorer
                     break;
                 case "Dump":
                     tDump.Focus();
+                    tDump.SelectAll();
                     break;
                 case "Handles":
                     lHandles.Focus();
