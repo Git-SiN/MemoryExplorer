@@ -233,14 +233,15 @@ VOID RestoreAddressTables() {
 
 PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operation) {
 	PVOID mappedAddress = NULL;
-	PDEVICE_EXTENSION pExtension = NULL;
+	PDEVICE_EXTENSION pExtension = pMyDevice->DeviceExtension;
 
 	// Exchange the Vad & PDT
-	if (NT_SUCCESS(ManipulateAddressTables(pExtension))) {
+	if (pExtension && (NT_SUCCESS(ManipulateAddressTables(pExtension)))) {
 
 		// Allocate the MDL.
 		pExtension->pSniffObject->pUsingMdl = MmCreateMdl(NULL, (PVOID)StartAddress, (SIZE_T)Length);
 		if ((pExtension->pSniffObject->pUsingMdl) != NULL) {
+
 			// Lock the MDL.
 			__try {
 				MmProbeAndLockPages(pExtension->pSniffObject->pUsingMdl, KernelMode, Operation);
@@ -255,10 +256,14 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 			if ((pExtension->pSniffObject->pUsingMdl) != NULL) {
 				mappedAddress = MmMapLockedPages(pExtension->pSniffObject->pUsingMdl, KernelMode);
 				if (mappedAddress) {
+					if ((pExtension->pSniffObject->pUsingMdl->MdlFlags) & MDL_MAPPED_TO_SYSTEM_VA)
+						DbgPrintEx(101, 0, ":::::::: Already Flag on :::::::::::::::::\n");
+
 					pExtension->pSniffObject->pUsingMdl->MdlFlags |= MDL_MAPPED_TO_SYSTEM_VA;
 					return mappedAddress;
 				}
 				else {
+					DbgPrintEx(101, 0, "    -> Failed to map to System Address.\n");
 					IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
 					pExtension->pSniffObject->pUsingMdl = NULL;
 				}
@@ -286,15 +291,16 @@ VOID UnMapAndUnLockMemory(PVOID mappedAddress) {
 			// Unlock the MDL.
 			__try {
 				MmUnlockPages(pExtension->pSniffObject->pUsingMdl);
+
+				// Free the MDL.
+				IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
+				pExtension->pSniffObject->pUsingMdl = NULL;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
 				DbgPrintEx(101, 0, "[ERROR] Failed to unlock the MDL...\n");
 				// In this case, just proceed...
 			}
 
-			// Free the MDL.
-			IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
-			pExtension->pSniffObject->pUsingMdl = NULL;
 		}
 
 		RestoreAddressTables();
