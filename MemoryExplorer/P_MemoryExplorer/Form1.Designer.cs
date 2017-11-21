@@ -95,6 +95,7 @@
             this.columnHeader18 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader22 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader23 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
+            this.bUseHistory = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
@@ -193,7 +194,8 @@
             // optionsToolStripMenuItem
             // 
             this.optionsToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.bRestartThread});
+            this.bRestartThread,
+            this.bUseHistory});
             this.optionsToolStripMenuItem.Name = "optionsToolStripMenuItem";
             this.optionsToolStripMenuItem.Size = new System.Drawing.Size(115, 32);
             this.optionsToolStripMenuItem.Text = "Options";
@@ -201,7 +203,7 @@
             // bRestartThread
             // 
             this.bRestartThread.Name = "bRestartThread";
-            this.bRestartThread.Size = new System.Drawing.Size(461, 32);
+            this.bRestartThread.Size = new System.Drawing.Size(643, 32);
             this.bRestartThread.Text = "Restart Communication Thread";
             this.bRestartThread.Click += new System.EventHandler(this.bRestartThread_Click);
             // 
@@ -585,7 +587,7 @@
             // 
             this.bDirect.ForeColor = System.Drawing.Color.Red;
             this.bDirect.Name = "bDirect";
-            this.bDirect.Size = new System.Drawing.Size(211, 30);
+            this.bDirect.Size = new System.Drawing.Size(205, 30);
             this.bDirect.Text = "by Direct";
             this.bDirect.Click += new System.EventHandler(this.bManipulate_Click);
             // 
@@ -736,6 +738,15 @@
             this.columnHeader23.Text = "Value";
             this.columnHeader23.Width = 100;
             // 
+            // bUseHistory
+            // 
+            this.bUseHistory.Checked = true;
+            this.bUseHistory.CheckOnClick = true;
+            this.bUseHistory.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.bUseHistory.Name = "bUseHistory";
+            this.bUseHistory.Size = new System.Drawing.Size(643, 32);
+            this.bUseHistory.Text = "Use the History Mechanism for Manipulation";
+            // 
             // fMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(144F, 144F);
@@ -851,6 +862,7 @@
         private System.Windows.Forms.ToolStripMenuItem bDirect;
         private System.Windows.Forms.ToolStripMenuItem bIndirect;
         private System.Windows.Forms.ToolStripDropDownButton bManipulate;
+        private System.Windows.Forms.ToolStripMenuItem bUseHistory;
     }
 }
 

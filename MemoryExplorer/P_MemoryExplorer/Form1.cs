@@ -286,7 +286,7 @@ namespace MemoryExplorer
         internal bool refreshWholeVadMap = false;
         //internal bool isErrorInFinder = false;        // ShowDialog()로 했을 때는 메인 폼이 멈춰서 이런 식으로 값넘김이 안되는듯
         internal uint addressTranslator = 0;
-
+        private bool isManipulated = false;
 
         public fMain()
         {
@@ -778,7 +778,9 @@ namespace MemoryExplorer
 
         private void bSelect_Click(object sender, EventArgs e)
         {
-            if(bSelect.Text == "Select")
+            uint targetPID = 0;
+
+            if (bSelect.Text == "Select")
             {
                 if(cProcesses.SelectedItem == null)
                 {
@@ -792,8 +794,11 @@ namespace MemoryExplorer
                     lMap.Items.Clear();
                     tabControl1.TabPages[1].Text = "VAD Map";
 
-                    ////////// 프로세스 인포 얻어오고 난 후.//////////////////////
-                    if (SendControlMessage(IOCTL_SELECT_TARGET, (Convert.ToUInt32(cProcesses.Text.Split(new char[] { '[', ']' })[1]))) == 1){
+                    targetPID = (Convert.ToUInt32(cProcesses.Text.Split(new char[] { '[', ']' })[1]));
+                    if (bUseHistory.Checked)
+                        targetPID |= 0x80000000;
+
+                    if (SendControlMessage(IOCTL_SELECT_TARGET, targetPID) == 1){
                         bSelect.BackColor = Color.LightCoral;
                         bSelect.Text = "UnSelect";
                         cProcesses.Enabled = false;
@@ -801,9 +806,7 @@ namespace MemoryExplorer
                     else
                     {
                         MessageBox.Show("SendControlMessage() is failed.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
                     }
-                //    }
                 }
             }
             else if(bSelect.Text == "Refresh")
@@ -814,11 +817,22 @@ namespace MemoryExplorer
                     bSelect.Text = "Select";
                 }
             }
-            else{       // Unselect with Colors.LightCoral
-                if (SendControlMessage(IOCTL_UNSELECT_TARGET, 0) == 0)
+            else
+            {       // Unselect with Colors.LightCoral
+                // Select whether restore corruption or not.
+                if (isManipulated)
+                {
+                    DialogResult result = MessageBox.Show("If the manipulated Memory remained, the System Crash may be occured.\r\nRestore it?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    if (result == DialogResult.Yes)
+                        targetPID = 1;
+
+                    isManipulated = false;
+                }
+                if (SendControlMessage(IOCTL_UNSELECT_TARGET, targetPID) == 0)
                 {
                     MessageBox.Show("TARGET_OBJECT in Driver is not exist.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
+
                 // 이게 실패할 경우는, 드라이버에 TARGET_OBJECT 가 없는 경우 뿐. 
                 //       -> 어디선가 동기화가 잘못된거니, 그냥 애플리케이션도 UNSELCT 상태인 것으로 만들자.
                 bSelect.BackColor = SystemColors.Control;
@@ -1034,7 +1048,6 @@ namespace MemoryExplorer
                 return;
             }
 
-
             ListViewItem selected = lDump.Items[lDump.SelectedIndices[0]];
             uint address = 0;
             uint count = 0;
@@ -1061,6 +1074,13 @@ namespace MemoryExplorer
             }
             else
                 return;
+
+
+            if (!isManipulated)
+            {
+                MessageBox.Show("If you manipulate the Memory, the System Crash may occur.\r\nFirst, Save All Work In Progress.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                isManipulated = true;
+            }
 
             DialogResult result = manipulateForm.ShowDialog();
             if (result == DialogResult.OK)

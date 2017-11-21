@@ -30,11 +30,19 @@ PDEVICE_OBJECT pMyDevice = NULL;
 
 
 #pragma pack(1)
+typedef struct _HISTORY_OBJECT {
+	LIST_ENTRY ListEntry;
+	ULONG StartAddress;
+	ULONG Length;
+	PVOID Buffer;
+}HISTORY_OBJECT, *PHISTORY_OBJECT;
+
 typedef struct _TARGET_OBJECT {
 	ULONG ProcessId;
 	ULONG pEprocess;
 	ULONG pVadRoot;
-	UCHAR ImageFileName[15];
+	BOOLEAN bHistory;
+	LIST_ENTRY HistoryHead;
 }TARGET_OBJECT, *PTARGET_OBJECT;
 
 typedef struct _SNIFF_OBJECT {
@@ -541,7 +549,7 @@ BOOLEAN VadEntryMaker(PMMADDRESS_NODE pNode, ULONG Level, PDEVICE_EXTENSION pExt
 	__try {
 		if (!(((PMMVAD)pNode)->VadFlags.PrivateMemory) && (((PMMVAD)pNode)->pSubsection) && (((PMMVAD)pNode)->pSubsection->pControlArea)) {
 			if (((PMMVAD)pNode)->pSubsection->pControlArea->File) {
-				// Reuse the value "MessageType".
+				// Reuse the variable "MessageType".
 				pMessageList->Message.MessageType = ((ULONG)(((PMMVAD)pNode)->pSubsection->pControlArea->FilePointer.Object) & 0xFFFFFFF8);
 				RtlCopyMemory(pVadMap->FileName, (((PFILE_OBJECT)(pMessageList->Message.MessageType))->FileName.Buffer), (((PFILE_OBJECT)(pMessageList->Message.MessageType))->FileName.Length));
 			}
@@ -1119,19 +1127,24 @@ NTSTATUS UserMessageMaker(PDEVICE_EXTENSION pExtension, ULONG MessageType) {
 	return ntStatus;
 }
 
-
+// targetPID's first byte is the flags for History Function.
 NTSTATUS InitializeTargetObject(PDEVICE_EXTENSION pExtension, ULONG targetPID){
 	ULONG pFirstEPROCESS = 0;
 	ULONG pCurrentEPROCESS = 0;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 	PTARGET_OBJECT pTargetObject = NULL;
 	BOOLEAN isDetected = FALSE;
+	UCHAR flags = 0;
 
 	pFirstEPROCESS = (ULONG)IoGetCurrentProcess();
 	if (pFirstEPROCESS == NULL) {
 		DbgPrintEx(101, 0, "[ERROR] Failed to get the first process...\n");
 		return ntStatus;
 	}
+
+	// Separate Flags frome targetPID.
+	flags = (UCHAR)((targetPID & 0xFF000000) >> 24);
+	targetPID &= 0x00FFFFFF;
 
 	// Find the Target Process.
 	pCurrentEPROCESS = pFirstEPROCESS;
@@ -1165,10 +1178,11 @@ NTSTATUS InitializeTargetObject(PDEVICE_EXTENSION pExtension, ULONG targetPID){
 		pTargetObject->pEprocess = pCurrentEPROCESS;
 		pTargetObject->pVadRoot = pCurrentEPROCESS + EPROC_OFFSET_VadRoot;
 		pTargetObject->ProcessId = targetPID;
-
-		RtlCopyMemory(pTargetObject->ImageFileName, (PUCHAR)(pCurrentEPROCESS + EPROC_OFFSET_ImageFileName), 15);
-		
-		
+		if (flags & 0x80) {
+			InitializeListHead(&(pTargetObject->HistoryHead));
+			pTargetObject->bHistory = TRUE;
+		}
+	
 		UserMessageMaker(pExtension, MESSAGE_TYPE_PROCESS_INFO);
 		UserMessageMaker(pExtension, MESSAGE_TYPE_VAD);
 		UserMessageMaker(pExtension, MESSAGE_TYPE_HANDLES);
@@ -1575,24 +1589,46 @@ ULONG GetMemoryDump(ULONG ctlCode, PMMVAD pVad, PUCHAR buffer) {
 	return 0;
 }
 
-NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
-	PVOID startAddress = NULL;
+NTSTATUS ManipulateMemory(ULONG StartAddress, ULONG Length, PUCHAR pBuffer) {
 	PVOID mappedAddress = NULL;
-	ULONG length = 0;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
+	PLIST_ENTRY pHistoryhead = NULL;
+	PHISTORY_OBJECT pHistory = NULL;
 
-	startAddress = (PVOID)*(PULONG)pBuffer;
-	length = *(PULONG)(pBuffer + 4);
-	
-	if ((startAddress == NULL) || (length == 0) || (length > 4096)) {
+	if ((StartAddress == 0) || (Length == 0) || (Length > 4096)) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in ManipulateMemory()...\n");
 		return ntStatus;
 	}
 	
-	mappedAddress = LockAndMapMemory(startAddress, length, IoWriteAccess);
+	if (((PDEVICE_EXTENSION)(pMyDevice->DeviceExtension))->pTargetObject->bHistory) {
+		pHistory = ExAllocatePool(NonPagedPool, sizeof(HISTORY_OBJECT));
+		if (pHistory == NULL) {
+			DbgPrintEx(101, 0, "[ERROR] Failed to allocate Pool for HISTORY_OBJECT.\n");
+			return ntStatus;
+		}
+		RtlZeroMemory(pHistory, sizeof(HISTORY_OBJECT));
+
+		pHistory->Buffer = ExAllocatePool(NonPagedPool, Length);
+		if (pHistory->Buffer == NULL) {
+			DbgPrintEx(101, 0, "[ERROR] Failed to allocate Pool for History buffer.\n");
+			ExFreePool(pHistory);
+			return ntStatus;
+		}
+		RtlZeroMemory(pHistory->Buffer, Length);
+
+		pHistoryhead = &(((PDEVICE_EXTENSION)(pMyDevice->DeviceExtension))->pTargetObject->HistoryHead);
+	}
+
+	mappedAddress = LockAndMapMemory(StartAddress, Length, IoWriteAccess);
 	if (mappedAddress != NULL) {
-		__try {	
-			RtlCopyMemory(mappedAddress, pBuffer + 8, length);
+		__try {
+			// Store the History.
+			if (pHistory != NULL)
+				RtlCopyMemory(pHistory->Buffer, mappedAddress, Length);
+
+			// Manipulate.
+			RtlCopyMemory(mappedAddress, pBuffer, Length);
+
 			DbgPrintEx(101, 0, "Manipulation Succeeded...\n");
 			ntStatus = STATUS_SUCCESS;
 		}
@@ -1602,6 +1638,18 @@ NTSTATUS ManipulateMemory(PUCHAR pBuffer) {
 		}
 
 		UnMapAndUnLockMemory(mappedAddress);
+
+		if (pHistory != NULL) {
+			if (NT_SUCCESS(ntStatus)) {
+				pHistory->StartAddress = StartAddress;
+				pHistory->Length = Length;
+				InsertTailList(pHistoryhead, &(pHistory->ListEntry));
+			}
+			else {
+				ExFreePool(pHistory->Buffer);
+				ExFreePool(pHistory);
+			}
+		}
 	}
 	
 	return ntStatus;
@@ -1711,7 +1759,7 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 			DbgPrintEx(101, 0, "[WARNING] the Pending Queue is empty.\n");
 		}
 		else {
-			//	Reuse the value "pBuffer".
+			//	Reuse the variable "pBuffer".
 			pBuffer = RemoveHeadList(&(pExtension->PendingIrpQueue));
 			if (pBuffer) {
 				pBuffer = CONTAINING_RECORD(pBuffer, IRP, Tail.Overlay.ListEntry);
@@ -1788,6 +1836,30 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 				KeSetEvent(&(pExtension->WaitingIRPEvent), 0, FALSE);
 			}
 
+			// Reuse the variable "ntStatus".
+			ntStatus = (NTSTATUS)(*(PULONG)(pIrp->AssociatedIrp.SystemBuffer));
+
+			// Restore the manipulations.
+			if (pExtension->pTargetObject->bHistory) {
+				pExtension->pTargetObject->bHistory = FALSE;
+
+					while (!IsListEmpty(&(pExtension->pTargetObject->HistoryHead))) {
+						pBuffer = (PVOID)RemoveTailList(&(pExtension->pTargetObject->HistoryHead));
+						if (pBuffer) {
+
+							// Restore.
+							//	-> It doesn't matter, Succeed or not.
+							if ((ULONG)ntStatus == 1)
+								ManipulateMemory(((PHISTORY_OBJECT)pBuffer)->StartAddress, ((PHISTORY_OBJECT)pBuffer)->Length, (PUCHAR)(((PHISTORY_OBJECT)pBuffer)->Buffer));
+
+							// Free.
+							ExFreePool(((PHISTORY_OBJECT)pBuffer)->Buffer);
+							ExFreePool((PHISTORY_OBJECT)pBuffer);
+							pBuffer = NULL;
+						}
+					}			
+			}			
+
 			// Free the TARGET_OBJECT.
 			ExFreePool(pExtension->pTargetObject);
 			pExtension->pTargetObject = NULL;
@@ -1828,7 +1900,8 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 			DbgPrintEx(101, 0, "[ERROR] Invalid Parameters.\n");
 		}
 		else 
-			ntStatus = ManipulateMemory(pBuffer);
+			ntStatus = ManipulateMemory(*(PULONG)pBuffer, *(((PULONG)pBuffer) + 1), (PUCHAR)(((PULONG)pBuffer) + 2));
+	
 		pIrp->IoStatus.Information = 0;
 		break;
 	default:
