@@ -822,7 +822,7 @@ namespace MemoryExplorer
                 // Select whether restore corruption or not.
                 if (isManipulated)
                 {
-                    DialogResult result = MessageBox.Show("If the manipulated Memory remained, the System Crash may be occured.\r\nRestore it?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+                    DialogResult result = MessageBox.Show("If manipulated Memory remain, System Crash may occur.\r\nRestore it?", "Warning", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
                     if (result == DialogResult.Yes)
                         targetPID = 1;
 
@@ -1078,7 +1078,7 @@ namespace MemoryExplorer
 
             if (!isManipulated)
             {
-                MessageBox.Show("If you manipulate the Memory, the System Crash may occur.\r\nFirst, Save All Work In Progress.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("If manipulate, System Crash may occur.\r\nFirst, Save All Work In Progress.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 isManipulated = true;
             }
 
