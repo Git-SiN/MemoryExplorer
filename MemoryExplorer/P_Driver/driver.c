@@ -256,9 +256,6 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 			if ((pExtension->pSniffObject->pUsingMdl) != NULL) {
 				mappedAddress = MmMapLockedPages(pExtension->pSniffObject->pUsingMdl, KernelMode);
 				if (mappedAddress) {
-					if ((pExtension->pSniffObject->pUsingMdl->MdlFlags) & MDL_MAPPED_TO_SYSTEM_VA)
-						DbgPrintEx(101, 0, ":::::::: Already Flag on :::::::::::::::::\n");
-
 					pExtension->pSniffObject->pUsingMdl->MdlFlags |= MDL_MAPPED_TO_SYSTEM_VA;
 					return mappedAddress;
 				}
