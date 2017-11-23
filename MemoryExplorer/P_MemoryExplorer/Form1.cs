@@ -696,7 +696,7 @@ namespace MemoryExplorer
             {
                 foreach (Process currentEntry in processList)
                 {
-                  //  if(currentEntry.Id != 0)
+                    if(currentEntry.Id != 0)
                         cProcesses.Items.Add(currentEntry.ProcessName + " [" + currentEntry.Id.ToString() + "]");
                 }
 
@@ -792,8 +792,6 @@ namespace MemoryExplorer
                 else
                 {
                     targetPID = (Convert.ToUInt32(cProcesses.Text.Split(new char[] { '[', ']' })[1]));
-                    if (targetPID == 0)
-                        return;
 
                     lMap.Items.Clear();
                     tabControl1.TabPages[1].Text = "VAD Map";
@@ -1024,9 +1022,7 @@ namespace MemoryExplorer
             ////////////////////////     Failed...
             lDump.Items.Clear();
             lDump.VirtualListSize = 0;
-
-            MessageBox.Show("Invalid Parameters.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
+            
             return;
         }
 

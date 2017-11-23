@@ -143,7 +143,7 @@ NTSTATUS ManipulateAddressTables(PDEVICE_EXTENSION pExtension) {
 		
 		// Change the current thread's KPROCESS.
 		*(PULONG)((pExtension->pSniffObject->backedEthread) + KTHREAD_OFFSET_KPROCESS) = pExtension->pTargetObject->pEprocess;
-
+		
 
 		// Manipulate the register CR3.
 		backedCR3 = *(PULONG)((pExtension->pTargetObject->pEprocess) + KPROC_OFFSET_DirectoryTableBase);
@@ -167,9 +167,9 @@ NTSTATUS ManipulateAddressTables(PDEVICE_EXTENSION pExtension) {
 		return STATUS_UNSUCCESSFUL;
 	}
 
-	DbgPrintEx(101, 0, "   ::: Current Process : %s\n", (PUCHAR)((pExtension->pSniffObject->backedEprocess) + EPROC_OFFSET_ImageFileName));
+	DbgPrintEx(101, 0, "   ::: Original Process : %s\n", (PUCHAR)((pExtension->pSniffObject->backedEprocess) + EPROC_OFFSET_ImageFileName));
 	DbgPrintEx(101, 0, "       -> Manipulated to : %s\n", (PUCHAR)((pExtension->pTargetObject->pEprocess) + EPROC_OFFSET_ImageFileName));
-	DbgPrintEx(101, 0, "   ::: Current CR3 : 0x%08X\n", pExtension->pSniffObject->backedCR3);
+	DbgPrintEx(101, 0, "   ::: Original CR3 : 0x%08X\n", pExtension->pSniffObject->backedCR3);
 	DbgPrintEx(101, 0, "       -> Changed CR3 : 0x%08X\n", backedCR3);
 
 	return STATUS_SUCCESS;
@@ -217,7 +217,7 @@ VOID RestoreAddressTables() {
 			// for TEST...
 			if (!isRestored) {
 				//	*(PULONG)(backedEprocess + KPROC_OFFSET_DirectoryTableBase) = backedCR3;
-
+				// for Check...
 				DbgPrintEx(101, 0, "    -> CR3 is not restored, Because the current process is switched...\n");
 				DbgPrintEx(101, 0, "        -> Backed Process's PDT : 0x%08X\n", *(PULONG)(backedEprocess + KPROC_OFFSET_DirectoryTableBase));
 				DbgPrintEx(101, 0, "        -> Backed CR3           : 0x%08X\n", backedCR3);
@@ -264,7 +264,7 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 				mappedAddress = MmMapLockedPages(pExtension->pSniffObject->pUsingMdl, KernelMode);
 				if (mappedAddress) {
 					pExtension->pSniffObject->pUsingMdl->MdlFlags |= MDL_MAPPED_TO_SYSTEM_VA;
-					return mappedAddress;
+					// return mappedAddress;
 				}
 				else {
 					DbgPrintEx(101, 0, "    -> Failed to map to System Address.\n");
@@ -276,17 +276,18 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 				DbgPrintEx(101, 0, "    -> Failed to lock the memory...\n");
 		}
 
-		// Failed.
+		// Always Restore.
 		RestoreAddressTables();
 	}
 
 	return mappedAddress;
 }
 
+
 VOID UnMapAndUnLockMemory(PVOID mappedAddress) {
 	PDEVICE_EXTENSION pExtension = pMyDevice->DeviceExtension;
 
-	if (pExtension && pExtension->pSniffObject) {
+	if (pExtension && pExtension->pSniffObject && (NT_SUCCESS(ManipulateAddressTables(pExtension)))) {
 		if (pExtension->pSniffObject->pUsingMdl) {
 
 			// Unmap.
@@ -342,6 +343,56 @@ VOID ListCleaner(PLIST_ENTRY pListEntry, PKSPIN_LOCK pLock) {
 	DbgPrintEx(101, 0, "    -> %u entries are removed...\n", count);
 	return;
 }
+
+ULONG DiffProcessWorkingSet(PULONG pCount) {
+	PUCHAR pEprocess = NULL;
+	PMMWSL pWsl = NULL;
+	ULONG diff = 0;
+	PULONG pEntry = NULL;
+	ULONG i = 0;
+
+	if (pCount == NULL)
+		return 0;
+
+	__asm {
+		push eax;
+
+		mov eax, fs:0x124;
+		add eax, KTHREAD_OFFSET_KPROCESS;
+		mov eax, [eax];
+
+		mov pEprocess, eax;
+
+		pop eax;
+	}
+	
+	pWsl = (((PMMSUPPORT)(pEprocess + EPROC_OFFSET_Vm))->VmWorkingSetList);
+	
+	
+	if (*pCount == 0)
+		*pCount = pWsl->LastInitializedWsle;
+	else {
+		diff = pWsl->LastInitializedWsle;
+		if (diff > (*pCount)) {		
+			diff -= (*pCount);		// Added count
+			pEntry = (PULONG)(((ULONG)(pWsl->Wsle)) + (4 * ((*pCount) + 1)));		// The first added entry 
+			DbgPrintEx(101, 0, ":::: %s : %d INCREASED.\n", (pEprocess + EPROC_OFFSET_ImageFileName), diff);
+			
+			for (i = 0; i < diff; i++) {
+				DbgPrintEx(101, 0, "    %d. VPN : 05X\n", i + 1, ((*(pEntry + i)) >> 12));
+			}
+		}
+		else if (diff < (*pCount)) {
+			DbgPrintEx(101, 0, ":::: %s : DECREASED.\n", (pEprocess + EPROC_OFFSET_ImageFileName));
+		}
+		else
+			DbgPrintEx(101, 0, ":::: %s : SAME.\n", (pEprocess + EPROC_OFFSET_ImageFileName));
+
+	}
+
+	return diff;
+}
+
 
 VOID OnUnload(PDRIVER_OBJECT pDriverObject) {
 	UNICODE_STRING linkName;
@@ -1355,9 +1406,10 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 	PUCHAR memoryDump = NULL;
 	PVOID mappedAddress = NULL;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
+	ULONG tmp = 0;
 
 	DbgPrintEx(101, 0, "::: Dumping the Address : 0x%08X [%X]\n", StartAddress, Length);
-
+	
 	// Allocate the Pool before corrupt the current VAD & PDT.
 	memoryDump = ExAllocatePool(NonPagedPool, Length);
 	if (memoryDump == NULL) {
@@ -1365,6 +1417,7 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 	}	
 	else {
 		RtlZeroMemory(memoryDump, Length);
+		DiffProcessWorkingSet(&tmp);
 
 		mappedAddress = LockAndMapMemory(StartAddress, Length, IoReadAccess);
 		if (mappedAddress != NULL){
@@ -1375,9 +1428,11 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 			__except (EXCEPTION_EXECUTE_HANDLER) {
 				ntStatus = STATUS_UNSUCCESSFUL;
 			}
-		
+			
 			UnMapAndUnLockMemory(mappedAddress);
 		}
+		DiffProcessWorkingSet(&tmp);
+
 	}
 
 	if (!NT_SUCCESS(ntStatus)) {
@@ -1809,7 +1864,6 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 			DbgPrintEx(101, 0, "[ERROR] Target Object is already set.\n");
 		}
 		else {
-			DbgPrintEx(101, 0, "Target Process ID : %u\n", *(PULONG)pBuffer);
 			ntStatus = InitializeTargetObject(pExtension, *(PULONG)pBuffer);
 		}
 		break;
@@ -2097,7 +2151,7 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING regPath) {
 
 				pDriverObject->DeviceObject->Flags |= DO_DIRECT_IO;
 				DbgPrintEx(101, 0, "Driver loaded...\n");
-
+				
 				// MemoryExplorer 프로세스의 EPROCESS 내 ProcessWorkingsetShared 플래그 올려보자.
 				////	-> 여기서 EPROCESS 따면, System 프로세스의 컨텍스트이다.
 				//tmp = (ULONG)PsGetCurrentProcess();
