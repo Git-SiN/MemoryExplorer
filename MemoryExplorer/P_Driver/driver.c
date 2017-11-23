@@ -257,7 +257,6 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 			__except (EXCEPTION_EXECUTE_HANDLER) {
 				IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
 				pExtension->pSniffObject->pUsingMdl = NULL;
-				DbgPrintEx(101, 0, "    -> Failed to lock the memory...\n");
 			}
 
 			// Mapping to System Address.
@@ -273,6 +272,8 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 					pExtension->pSniffObject->pUsingMdl = NULL;
 				}
 			}
+			else
+				DbgPrintEx(101, 0, "    -> Failed to lock the memory...\n");
 		}
 
 		// Failed.
@@ -302,7 +303,7 @@ VOID UnMapAndUnLockMemory(PVOID mappedAddress) {
 				pExtension->pSniffObject->pUsingMdl = NULL;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
-				DbgPrintEx(101, 0, "[ERROR] Failed to unlock the MDL...\n");
+//				DbgPrintEx(101, 0, "[ERROR] Failed to unlock the MDL...\n");
 				// In this case, just proceed...
 			}
 
@@ -499,21 +500,6 @@ NTSTATUS ProcessInfoMaker(PTARGET_OBJECT pTargetObject, PPROCESS_INFO pProcessIn
 //		tmp = KeReleaseSemaphore(&(((PDEVICE_EXTENSION)(pMyDevice->DeviceExtension))->CommunicationSemapohore), 0, 1, FALSE);
 //	}
 //	__except (EXCEPTION_EXECUTE_HANDLER) {
-//		if (GetExceptionCode() == STATUS_SEMAPHORE_LIMIT_EXCEEDED) {
-//			DbgPrintEx(101, 0, "[ERROR] The Semaphore limit exceeded...\n");
-//			DbgPrintEx(101, 0, "    -> Waiting...\n");
-//		
-//			KeStallExecutionProcessor(1000000);
-//			goto RETRY_RELEASE_SEM;
-//		/*	__try {
-//				KeReleaseSemaphore(&(((PDEVICE_EXTENSION)(pMyDevice->DeviceExtension))->CommunicationSemapohore), 0, 1, FALSE);
-//			}
-//			__except (EXCEPTION_EXECUTE_HANDLER) {
-//				DbgPrintEx(101, 0, "[ERROR] Semaphore limit exceeded Again.\n");
-//				DbgPrintEx(101, 0, "    -> Quit this execution.\n");
-//				return;
-//			}*/
-//		}
 //	}
 //	DbgPrintEx(101, 0, "Append VAD Entry[%d], SEM : %u \n", Params->Level, tmp);
 //	DbgPrintEx(101, 0, "    -> VAD Root : 0x%08X\n", pVadMap->Vad);
@@ -565,8 +551,7 @@ BOOLEAN VadEntryMaker(PMMADDRESS_NODE pNode, ULONG Level, PDEVICE_EXTENSION pExt
 
 	pMessageList->Message.MessageType = MESSAGE_TYPE_VAD;
 	
-	__try{
-		
+	__try{		
 		ExInterlockedInsertTailList(&(pExtension->MessageQueue), &(pMessageList->ListEntry), &(pExtension->MessageLock));
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {
@@ -579,9 +564,10 @@ BOOLEAN VadEntryMaker(PMMADDRESS_NODE pNode, ULONG Level, PDEVICE_EXTENSION pExt
 		KeReleaseSemaphore(&(pExtension->CommunicationSemapohore), 0, 1, FALSE);
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {		// Why not the handler is executed??  Just BSOD....
-		if (GetExceptionCode() == STATUS_SEMAPHORE_LIMIT_EXCEEDED) {
-			DbgPrintEx(101, 0, "[ERROR] Exceeds the Semaphore limit...\n");
-		}
+//		if (GetExceptionCode() == STATUS_SEMAPHORE_LIMIT_EXCEEDED) {	// GetExceptionCode()'s return value is not that type....
+//			DbgPrintEx(101, 0, "[ERROR] Exceeds the Semaphore limit...\n");
+//		}
+
 		return FALSE;
 	}
 	
@@ -1387,7 +1373,7 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 				ntStatus = STATUS_SUCCESS;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
-				DbgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
+				ntStatus = STATUS_UNSUCCESSFUL;
 			}
 		
 			UnMapAndUnLockMemory(mappedAddress);
@@ -1395,6 +1381,8 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 	}
 
 	if (!NT_SUCCESS(ntStatus)) {
+		DbgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
+
 		ExFreePool(memoryDump);
 		memoryDump = NULL;
 	}
@@ -1566,26 +1554,26 @@ ULONG GetMemoryDump(ULONG ctlCode, PMMVAD pVad, PUCHAR buffer) {
 
 	if ((dumpStartAddress != NULL) && (dumpLength != 0)) {
 		RtlZeroMemory(buffer, 4100);
-		__try {
-			dumpBuffer = MemoryDumping((ULONG)dumpStartAddress, dumpLength);
-			if (dumpBuffer == NULL) {
-				return 0;
-			}
-			else {
-				*(PULONG)buffer = (ULONG)dumpStartAddress;
+
+		dumpBuffer = MemoryDumping((ULONG)dumpStartAddress, dumpLength);
+		if (dumpBuffer == NULL) {
+			return 0;
+		}
+		else {
+			*(PULONG)buffer = (ULONG)dumpStartAddress;
+			__try {
 				RtlCopyMemory(buffer + 4, dumpBuffer, dumpLength);
 				ExFreePool(dumpBuffer);
+				dumpBuffer = NULL;
 				return (dumpLength + 4);
 			}
-			//  Now, All Dump Instructions via MemoryDumping()
-			//	*(PULONG)buffer = (ULONG)dumpStartAddress;
-			//	RtlCopyMemory(buffer + 4, dumpStartAddress, dumpLength);
-		}
-		__except (EXCEPTION_EXECUTE_HANDLER) {
-			DbgPrintEx(101, 0, "[ERROR] Failed to Dump [Exception Code : 0x%08X].\n", GetExceptionCode());
+			__except(EXCEPTION_EXECUTE_HANDLER) {
+//				DbgPrintEx(101, 0, "[ERROR] Failed to Dump [Exception Code : 0x%08X].\n", GetExceptionCode());
+			}
 		}
 	}
 
+	ExFreePool(dumpBuffer);
 	return 0;
 }
 
@@ -1633,8 +1621,8 @@ NTSTATUS ManipulateMemory(ULONG StartAddress, ULONG Length, PUCHAR pBuffer) {
 			ntStatus = STATUS_SUCCESS;
 		}
 		__except (EXCEPTION_EXECUTE_HANDLER) {
-			DbgPrintEx(101, 0, "[ERROR] Failed to manipulate memory...\n");
-			DbgPrintEx(101, 0, "    -> CODE : 0x%08X\n", GetExceptionCode());
+//			DbgPrintEx(101, 0, "[ERROR] Failed to manipulate memory...\n");
+//			DbgPrintEx(101, 0, "    -> CODE : 0x%08X\n", GetExceptionCode());
 		}
 
 		UnMapAndUnLockMemory(mappedAddress);

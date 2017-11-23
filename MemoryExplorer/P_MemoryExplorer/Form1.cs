@@ -791,10 +791,13 @@ namespace MemoryExplorer
                 }
                 else
                 {
+                    targetPID = (Convert.ToUInt32(cProcesses.Text.Split(new char[] { '[', ']' })[1]));
+                    if (targetPID == 0)
+                        return;
+
                     lMap.Items.Clear();
                     tabControl1.TabPages[1].Text = "VAD Map";
 
-                    targetPID = (Convert.ToUInt32(cProcesses.Text.Split(new char[] { '[', ']' })[1]));
                     if (bUseHistory.Checked)
                         targetPID |= 0x80000000;
 

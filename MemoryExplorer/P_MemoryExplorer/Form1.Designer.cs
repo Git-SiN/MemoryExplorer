@@ -40,6 +40,7 @@
             this.addressTranslatorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.bRestartThread = new System.Windows.Forms.ToolStripMenuItem();
+            this.bUseHistory = new System.Windows.Forms.ToolStripMenuItem();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label1 = new System.Windows.Forms.Label();
@@ -95,7 +96,6 @@
             this.columnHeader18 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader22 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader23 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.bUseHistory = new System.Windows.Forms.ToolStripMenuItem();
             this.menuStrip1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.splitContainer1)).BeginInit();
             this.splitContainer1.Panel1.SuspendLayout();
@@ -206,6 +206,15 @@
             this.bRestartThread.Size = new System.Drawing.Size(643, 32);
             this.bRestartThread.Text = "Restart Communication Thread";
             this.bRestartThread.Click += new System.EventHandler(this.bRestartThread_Click);
+            // 
+            // bUseHistory
+            // 
+            this.bUseHistory.Checked = true;
+            this.bUseHistory.CheckOnClick = true;
+            this.bUseHistory.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.bUseHistory.Name = "bUseHistory";
+            this.bUseHistory.Size = new System.Drawing.Size(643, 32);
+            this.bUseHistory.Text = "Use the History Mechanism for Manipulation";
             // 
             // splitContainer1
             // 
@@ -525,7 +534,7 @@
             // columnHeader12
             // 
             this.columnHeader12.Text = "Ascii";
-            this.columnHeader12.Width = 200;
+            this.columnHeader12.Width = 300;
             // 
             // toolStrip1
             // 
@@ -737,15 +746,6 @@
             // 
             this.columnHeader23.Text = "Value";
             this.columnHeader23.Width = 100;
-            // 
-            // bUseHistory
-            // 
-            this.bUseHistory.Checked = true;
-            this.bUseHistory.CheckOnClick = true;
-            this.bUseHistory.CheckState = System.Windows.Forms.CheckState.Checked;
-            this.bUseHistory.Name = "bUseHistory";
-            this.bUseHistory.Size = new System.Drawing.Size(643, 32);
-            this.bUseHistory.Text = "Use the History Mechanism for Manipulation";
             // 
             // fMain
             // 
