@@ -33,7 +33,7 @@ PDEVICE_OBJECT pMyDevice = NULL;
 typedef struct _HISTORY_OBJECT {
 	LIST_ENTRY ListEntry;
 	ULONG StartAddress;
-	ULONG Length;
+	ULONG Length;		// Most-significant byte is used for flag and follow byte is for hashing.
 	PVOID Buffer;
 }HISTORY_OBJECT, *PHISTORY_OBJECT;
 
@@ -1633,10 +1633,20 @@ ULONG GetMemoryDump(ULONG ctlCode, PMMVAD pVad, PUCHAR buffer) {
 }
 
 NTSTATUS ManipulateMemory(ULONG StartAddress, ULONG Length, PUCHAR pBuffer) {
-	PVOID mappedAddress = NULL;
+	PUCHAR mappedAddress = NULL;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 	PLIST_ENTRY pHistoryhead = NULL;
 	PHISTORY_OBJECT pHistory = NULL;
+	UCHAR hashing = 0;
+	UCHAR isHashed = 0;
+	ULONG i = 0;
+
+	// if Hashed, it is for Restoring.
+	if (Length & 0xFF0000) {
+		hashing = (Length & 0xFF000000) >> 24;
+		isHashed = 1;
+		Length &= 0xFFFF;
+	}
 
 	if ((StartAddress == 0) || (Length == 0) || (Length > 4096)) {
 		DbgPrintEx(101, 0, "[ERROR] Invalid Parameters in ManipulateMemory()...\n");
@@ -1662,15 +1672,25 @@ NTSTATUS ManipulateMemory(ULONG StartAddress, ULONG Length, PUCHAR pBuffer) {
 		pHistoryhead = &(((PDEVICE_EXTENSION)(pMyDevice->DeviceExtension))->pTargetObject->HistoryHead);
 	}
 
-	mappedAddress = LockAndMapMemory(StartAddress, Length, IoWriteAccess);
+	mappedAddress = (PUCHAR)LockAndMapMemory(StartAddress, Length, IoWriteAccess);
 	if (mappedAddress != NULL) {
 		__try {
-			// Store the History.
+			// Store the Original Contents.
 			if (pHistory != NULL)
 				RtlCopyMemory(pHistory->Buffer, mappedAddress, Length);
 
+			// Restore only if the Hash values match.
+			if (isHashed) {
+				for (i = 0; i < Length; i++)
+					isHashed += mappedAddress[i];
+
+				if(isHashed == (hashing + 1))
+					RtlCopyMemory(mappedAddress, pBuffer, Length);
+			}
 			// Manipulate.
-			RtlCopyMemory(mappedAddress, pBuffer, Length);
+			else
+				RtlCopyMemory(mappedAddress, pBuffer, Length);
+			
 
 			DbgPrintEx(101, 0, "Manipulation Succeeded...\n");
 			ntStatus = STATUS_SUCCESS;
@@ -1686,6 +1706,14 @@ NTSTATUS ManipulateMemory(ULONG StartAddress, ULONG Length, PUCHAR pBuffer) {
 			if (NT_SUCCESS(ntStatus)) {
 				pHistory->StartAddress = StartAddress;
 				pHistory->Length = Length;
+
+				// Calculate the Hashing and Set the flag.
+				while (Length--) {
+					hashing += pBuffer[Length];
+				}
+				pHistory->Length |= (((ULONG)hashing) << 24);
+				pHistory->Length |= 0x10000;				
+
 				InsertTailList(pHistoryhead, &(pHistory->ListEntry));
 			}
 			else {
@@ -1891,9 +1919,11 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 
 							// Restore.
 							//	-> It doesn't matter, Succeed or not.
-							if ((ULONG)ntStatus == 1)
+							if ((ULONG)ntStatus == 1) {
 								ManipulateMemory(((PHISTORY_OBJECT)pBuffer)->StartAddress, ((PHISTORY_OBJECT)pBuffer)->Length, (PUCHAR)(((PHISTORY_OBJECT)pBuffer)->Buffer));
 
+							}
+								
 							// Free.
 							ExFreePool(((PHISTORY_OBJECT)pBuffer)->Buffer);
 							ExFreePool((PHISTORY_OBJECT)pBuffer);
