@@ -41,6 +41,7 @@ typedef struct _TARGET_OBJECT {
 	ULONG ProcessId;
 	ULONG pEprocess;
 	ULONG pVadRoot;
+	PMDL pUsingMdl;
 	BOOLEAN bHistory;
 	LIST_ENTRY HistoryHead;
 }TARGET_OBJECT, *PTARGET_OBJECT;
@@ -49,7 +50,6 @@ typedef struct _SNIFF_OBJECT {
 	ULONG backedEthread;
 	ULONG backedEprocess;
 	ULONG backedCR3;
-	PMDL pUsingMdl;
 	ULONG backedHyperPte;
 }SNIFF_OBJECT, *PSNIFF_OBJECT;
 
@@ -247,29 +247,31 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 	if (pExtension && (NT_SUCCESS(ManipulateAddressTables(pExtension)))) {
 
 		// Allocate the MDL.
-		pExtension->pSniffObject->pUsingMdl = MmCreateMdl(NULL, (PVOID)StartAddress, (SIZE_T)Length);
-		if ((pExtension->pSniffObject->pUsingMdl) != NULL) {
+		pExtension->pTargetObject->pUsingMdl = MmCreateMdl(NULL, (PVOID)StartAddress, (SIZE_T)Length);
+		if ((pExtension->pTargetObject->pUsingMdl) != NULL) {
 
 			// Lock the MDL.
 			__try {
-				MmProbeAndLockPages(pExtension->pSniffObject->pUsingMdl, KernelMode, Operation);
+				MmProbeAndLockPages(pExtension->pTargetObject->pUsingMdl, KernelMode, Operation);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
-				IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
-				pExtension->pSniffObject->pUsingMdl = NULL;
+				IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
+				pExtension->pTargetObject->pUsingMdl = NULL;
 			}
 
 			// Mapping to System Address.
-			if ((pExtension->pSniffObject->pUsingMdl) != NULL) {
-				mappedAddress = MmMapLockedPages(pExtension->pSniffObject->pUsingMdl, KernelMode);
+			if ((pExtension->pTargetObject->pUsingMdl) != NULL) {
+				mappedAddress = MmMapLockedPages(pExtension->pTargetObject->pUsingMdl, KernelMode);
 				if (mappedAddress) {
-					pExtension->pSniffObject->pUsingMdl->MdlFlags |= MDL_MAPPED_TO_SYSTEM_VA;
-					// return mappedAddress;
+					if ((pExtension->pTargetObject->pUsingMdl->MdlFlags) & MDL_MAPPED_TO_SYSTEM_VA) {
+						DbgPrintEx(101, 0, "[[[[[[[[[[[[ MmMapLockPages() succeeded, Flag set. ]]]]]]]]]]]]]]\n");
+					}
+					pExtension->pTargetObject->pUsingMdl->MdlFlags |= MDL_MAPPED_TO_SYSTEM_VA;
 				}
 				else {
 					DbgPrintEx(101, 0, "    -> Failed to map to System Address.\n");
-					IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
-					pExtension->pSniffObject->pUsingMdl = NULL;
+					IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
+					pExtension->pTargetObject->pUsingMdl = NULL;
 				}
 			}
 			else
@@ -287,21 +289,21 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 VOID UnMapAndUnLockMemory(PVOID mappedAddress) {
 	PDEVICE_EXTENSION pExtension = pMyDevice->DeviceExtension;
 
-	if (pExtension && pExtension->pSniffObject && (NT_SUCCESS(ManipulateAddressTables(pExtension)))) {
-		if (pExtension->pSniffObject->pUsingMdl) {
+	if (pExtension && pExtension->pTargetObject && (NT_SUCCESS(ManipulateAddressTables(pExtension)))) {
+		if (pExtension->pTargetObject->pUsingMdl) {
 
 			// Unmap.
-			if ((pExtension->pSniffObject->pUsingMdl->MdlFlags) & MDL_MAPPED_TO_SYSTEM_VA) {
-				MmUnmapLockedPages(mappedAddress, pExtension->pSniffObject->pUsingMdl);
+			if ((pExtension->pTargetObject->pUsingMdl->MdlFlags) & MDL_MAPPED_TO_SYSTEM_VA) {
+				MmUnmapLockedPages(mappedAddress, pExtension->pTargetObject->pUsingMdl);
 			}
 			
 			// Unlock the MDL.
 			__try {
-				MmUnlockPages(pExtension->pSniffObject->pUsingMdl);
+				MmUnlockPages(pExtension->pTargetObject->pUsingMdl);
 
 				// Free the MDL.
-				IoFreeMdl(pExtension->pSniffObject->pUsingMdl);
-				pExtension->pSniffObject->pUsingMdl = NULL;
+				IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
+				pExtension->pTargetObject->pUsingMdl = NULL;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
 //				DbgPrintEx(101, 0, "[ERROR] Failed to unlock the MDL...\n");
