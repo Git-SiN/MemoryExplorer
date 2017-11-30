@@ -344,6 +344,7 @@ VOID ListCleaner(PLIST_ENTRY pListEntry, PKSPIN_LOCK pLock) {
 	return;
 }
 
+// For Test...
 ULONG DiffProcessWorkingSet(PULONG pCount) {
 	PUCHAR pEprocess = NULL;
 	PMMWSL pWsl = NULL;
@@ -432,14 +433,22 @@ VOID OnUnload(PDRIVER_OBJECT pDriverObject) {
 	ListCleaner(&(pExtension->MessageQueue), &(pExtension->MessageLock));
 
 	if (pExtension->pTargetObject) {
+		// Just Free...
+		while (!IsListEmpty(&(pExtension->pTargetObject->HistoryHead))) {
+			pTmp = RemoveTailList(&(pExtension->pTargetObject->HistoryHead));
+			if (pTmp) {
+				ExFreePool(((PHISTORY_OBJECT)pTmp)->Buffer);
+				ExFreePool((PHISTORY_OBJECT)pTmp);
+				pTmp = NULL;
+			}
+		}
 		ExFreePool(pExtension->pTargetObject);
 		pExtension->pTargetObject = NULL;
 	}
 
 	RtlInitUnicodeString(&linkName, linkBuffer);
 	IoDeleteSymbolicLink(&linkName);
-	IoDeleteDevice(pMyDevice);
-	
+	IoDeleteDevice(pMyDevice);	
 	
 	DbgPrintEx(101, 0, "Driver unloaded...\n");
 }
@@ -1641,11 +1650,11 @@ NTSTATUS ManipulateMemory(ULONG StartAddress, ULONG Length, PUCHAR pBuffer) {
 	UCHAR isHashed = 0;
 	ULONG i = 0;
 
-	// if Hashed, it is for Restoring.
-	if (Length & 0xFF0000) {
-		hashing = (Length & 0xFF000000) >> 24;
+	// if Hashing exists, it is for Restoring.
+	if (Length & 0x00FF0000) {
+		hashing = (UCHAR)((Length & 0xFF000000) >> 24);
 		isHashed = 1;
-		Length &= 0xFFFF;
+		Length &= 0x0000FFFF;
 	}
 
 	if ((StartAddress == 0) || (Length == 0) || (Length > 4096)) {
@@ -1913,23 +1922,22 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 			if (pExtension->pTargetObject->bHistory) {
 				pExtension->pTargetObject->bHistory = FALSE;
 
-					while (!IsListEmpty(&(pExtension->pTargetObject->HistoryHead))) {
-						pBuffer = (PVOID)RemoveTailList(&(pExtension->pTargetObject->HistoryHead));
-						if (pBuffer) {
+				while (!IsListEmpty(&(pExtension->pTargetObject->HistoryHead))) {
+					pBuffer = (PVOID)RemoveTailList(&(pExtension->pTargetObject->HistoryHead));
+					if (pBuffer) {
 
-							// Restore.
-							//	-> It doesn't matter, Succeed or not.
-							if ((ULONG)ntStatus == 1) {
-								ManipulateMemory(((PHISTORY_OBJECT)pBuffer)->StartAddress, ((PHISTORY_OBJECT)pBuffer)->Length, (PUCHAR)(((PHISTORY_OBJECT)pBuffer)->Buffer));
-
-							}
-								
-							// Free.
-							ExFreePool(((PHISTORY_OBJECT)pBuffer)->Buffer);
-							ExFreePool((PHISTORY_OBJECT)pBuffer);
-							pBuffer = NULL;
+						// Restore.
+						//	-> It doesn't matter, Succeed or not.
+						if ((ULONG)ntStatus == 1) {
+							ManipulateMemory(((PHISTORY_OBJECT)pBuffer)->StartAddress, ((PHISTORY_OBJECT)pBuffer)->Length, (PUCHAR)(((PHISTORY_OBJECT)pBuffer)->Buffer));
 						}
-					}			
+								
+						// Free.
+						ExFreePool(((PHISTORY_OBJECT)pBuffer)->Buffer);
+						ExFreePool((PHISTORY_OBJECT)pBuffer);
+						pBuffer = NULL;
+					}
+				}			
 			}			
 
 			// Free the TARGET_OBJECT.
