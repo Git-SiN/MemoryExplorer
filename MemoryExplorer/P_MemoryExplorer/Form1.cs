@@ -113,13 +113,13 @@ namespace MemoryExplorer
     }
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 1)]
-    public struct PATTERN_UNICODE_ENTRY
+    public struct FINDER_ENTRY
     {
         public ushort Length;
         public ushort MaximumLength;
         public uint Address;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 104)]  // 혹시 널문자 짤릴까봐.. 기본은 100
-        public string Context;
+        public string Contents;
     }
 
     //[StructLayout(LayoutKind.Sequential, CharSet= CharSet.None, Pack = 1)]
@@ -153,10 +153,11 @@ namespace MemoryExplorer
         Threads,
         Security,
         Handles,
-        Finder_Unicode,
+        Object_Unicode,
         WorkingSetSummary,
-        WorkingSetList
-        
+        WorkingSetList,
+        Pattern_Unicode,
+        Pattern_String
     }
 
 
@@ -285,8 +286,16 @@ namespace MemoryExplorer
         internal bool isErrorInVadDetails = false;
         internal bool refreshWholeVadMap = false;
         //internal bool isErrorInFinder = false;        // ShowDialog()로 했을 때는 메인 폼이 멈춰서 이런 식으로 값넘김이 안되는듯
-        internal uint addressTranslator = 0;
         private bool isManipulated = false;
+
+        /// <summary>
+        /// Condition Configuration
+        /// </summary>
+        internal uint conditionStart = 0;
+        internal uint conditionSize = 0;
+        internal uint conditionLevel = 0;
+        internal uint conditionString = 0;
+
 
         public fMain()
         {
@@ -502,16 +511,28 @@ namespace MemoryExplorer
             }
         }
 
-        private void PatternUnicodeListing(PATTERN_UNICODE_ENTRY buffer)
+        private void FinderListing(uint type, FINDER_ENTRY buffer)
         {
             string[] entry = new string[lFinder.Columns.Count];
             entry[0] = (lFinder.Items.Count + 1).ToString();
-            entry[1] = String.Format("0x{0:X4}", buffer.Length);
-            entry[2] = String.Format("0x{0:X4}", buffer.MaximumLength);
-            entry[3] = String.Format("0x{0:X8}", buffer.Address);
-            entry[4] = buffer.Context;
-            if ((entry[4].Length * 2) < buffer.Length)
-                entry[4] += "...";
+
+            switch (type)
+            {
+                case (uint)(MESSAGE_TYPE.Object_Unicode):
+                    entry[1] = String.Format("0x{0:X4}", buffer.Length);
+                    entry[2] = String.Format("0x{0:X4}", buffer.MaximumLength);
+                    entry[3] = String.Format("0x{0:X8}", buffer.Address);
+                    entry[4] = buffer.Contents;
+                    if ((entry[4].Length * 2) < buffer.Length)
+                        entry[4] += "...";
+                    break;
+                case (uint)(MESSAGE_TYPE.Pattern_Unicode):
+                case (uint)(MESSAGE_TYPE.Pattern_String):
+                    entry[1] = String.Format("0x{0:X8}", buffer.Address);
+                    entry[2] = String.Format("0x{0:X8}", (buffer.Length + ((uint)(buffer.MaximumLength) << 16)));
+                    entry[3] = buffer.Contents;   
+                    break;
+            }
 
             lFinder.Items.Add(new ListViewItem(entry));
         }
@@ -654,13 +675,17 @@ namespace MemoryExplorer
                             case (uint)(MESSAGE_TYPE.Handles):
                                 HandleTableMaker((HANDLE_ENTRY)(ByteToStructure(buffer.Buffer, typeof(HANDLE_ENTRY))));
                                 break;
-                            case (uint)(MESSAGE_TYPE.Finder_Unicode):
-                                PatternUnicodeListing((PATTERN_UNICODE_ENTRY)(ByteToStructure(buffer.Buffer, typeof(PATTERN_UNICODE_ENTRY))));
-                                    break;
+                            case (uint)(MESSAGE_TYPE.Object_Unicode):
+                            case (uint)(MESSAGE_TYPE.Pattern_Unicode):
+                            case (uint)(MESSAGE_TYPE.Pattern_String):
+                                FinderListing(buffer.MessageType, (FINDER_ENTRY)(ByteToStructure(buffer.Buffer, typeof(FINDER_ENTRY))));
+                                break;
                             case (uint)(MESSAGE_TYPE.WorkingSetSummary):
                             case (uint)(MESSAGE_TYPE.WorkingSetList):
                                 WorkingSetMaker(buffer);
                                 break;
+
+
                             default:
                                 MessageBox.Show("Invalid Message Type.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                                 break;
@@ -1093,7 +1118,7 @@ namespace MemoryExplorer
 
         }
 
-        private void bUnicodeFinder_Click(object sender, EventArgs e)
+        private void bObjectUnicode_Click(object sender, EventArgs e)
         {
             if(bSelect.Text != "UnSelect")
             {
@@ -1106,9 +1131,9 @@ namespace MemoryExplorer
             lFinder.Columns.Add("Length", 80);
             lFinder.Columns.Add("MaxL", 80);
             lFinder.Columns.Add("Address", 100);
-            lFinder.Columns.Add("Context", 400);
+            lFinder.Columns.Add("Content", 400);
             
-            HexViewerConfig configForm = new HexViewerConfig(this, 0, "Finder");
+            ConditionConfiguration configForm = new ConditionConfiguration(this, 0, "Finder");
             DialogResult result = configForm.ShowDialog();
 
             if (result == DialogResult.OK)
@@ -1168,19 +1193,19 @@ namespace MemoryExplorer
     
             if (bSelect.Text == "UnSelect")
             {
-                HexViewerConfig configForm = new HexViewerConfig(this, (byte)1, "Translator");
+                ConditionConfiguration configForm = new ConditionConfiguration(this, (byte)1, "Translator");
                 DialogResult result = configForm.ShowDialog();
 
                 if (result == DialogResult.OK)
                 {
                     if ((vadForm == null) || (vadForm.IsDisposed))
                     {
-                        vadForm = new VadForm(addressTranslator, this, 1);
+                        vadForm = new VadForm(conditionStart, this, 1);
                         vadForm.Show();
                     }
                     else
                     {
-                        vadForm.ChangeVirtualAddress(addressTranslator);
+                        vadForm.ChangeVirtualAddress(conditionStart);
                         vadForm.Focus();
                     }
                         
@@ -1271,6 +1296,72 @@ namespace MemoryExplorer
 
 
         }
+
+        private void bPatternString_Click(object sender, EventArgs e)
+        {
+
+            if (bSelect.Text != "UnSelect")
+            {
+                MessageBox.Show("First, Select a Target Process.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            lFinder.Clear();
+            lFinder.Columns.Add("", 30);
+            lFinder.Columns.Add("Address", 100);
+            lFinder.Columns.Add("Length", 80);
+            lFinder.Columns.Add("Content", 400);
+
+            ConditionConfiguration configForm = new ConditionConfiguration(this, 2, "Finder");
+            DialogResult result = configForm.ShowDialog();
+
+            if (result == DialogResult.OK)
+            {
+                tabControl1.SelectedIndex = 6;
+            }
+            else if (result == DialogResult.Cancel)
+            {
+                return;
+            }
+            else if (result == DialogResult.Abort)
+            {
+                MessageBox.Show("Selected Range of Memory is not allocated or ACCESS_VIOLATION...", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void bValueString_Click(object sender, EventArgs e)
+        {
+
+            if (bSelect.Text != "UnSelect")
+            {
+                MessageBox.Show("First, Select a Target Process.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            lFinder.Clear();
+            lFinder.Columns.Add("", 30);
+            lFinder.Columns.Add("Address", 100);
+            lFinder.Columns.Add("Length", 80);
+            lFinder.Columns.Add("Content", 400);
+
+            ConditionConfiguration configForm = new ConditionConfiguration(this, 3, "Finder");
+            DialogResult result = configForm.ShowDialog();
+
+            if (result == DialogResult.OK)
+            {
+                tabControl1.SelectedIndex = 6;
+            }
+            else if (result == DialogResult.Cancel)
+            {
+                return;
+            }
+            else if (result == DialogResult.Abort)
+            {
+                MessageBox.Show("Selected Range of Memory is not allocated or ACCESS_VIOLATION...", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+
 
 
 

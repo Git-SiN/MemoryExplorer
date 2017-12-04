@@ -47,6 +47,12 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConditionConfiguration.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="ConditionConfiguration.Designer.cs">
+      <DependentUpon>ConditionConfiguration.cs</DependentUpon>
+    </Compile>
     <Compile Include="Editor.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -58,12 +64,6 @@
     </Compile>
     <Compile Include="Form1.Designer.cs">
       <DependentUpon>Form1.cs</DependentUpon>
-    </Compile>
-    <Compile Include="HexViewerConfig.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="HexViewerConfig.designer.cs">
-      <DependentUpon>HexViewerConfig.cs</DependentUpon>
     </Compile>
     <Compile Include="IndirectInput.cs">
       <SubType>Form</SubType>
@@ -79,14 +79,14 @@
     <Compile Include="VadForm.Designer.cs">
       <DependentUpon>VadForm.cs</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="ConditionConfiguration.resx">
+      <DependentUpon>ConditionConfiguration.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="Editor.resx">
       <DependentUpon>Editor.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="HexViewerConfig.resx">
-      <DependentUpon>HexViewerConfig.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="IndirectInput.resx">
       <DependentUpon>IndirectInput.cs</DependentUpon>

@@ -70,10 +70,10 @@
             this.statusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.tSize,
             this.tMessage});
-            this.statusStrip1.Location = new System.Drawing.Point(0, 260);
+            this.statusStrip1.Location = new System.Drawing.Point(0, 261);
             this.statusStrip1.Name = "statusStrip1";
             this.statusStrip1.Padding = new System.Windows.Forms.Padding(1, 0, 13, 0);
-            this.statusStrip1.Size = new System.Drawing.Size(751, 28);
+            this.statusStrip1.Size = new System.Drawing.Size(751, 27);
             this.statusStrip1.TabIndex = 1;
             this.statusStrip1.Text = "statusStrip1";
             // 
@@ -83,7 +83,7 @@
             this.tSize.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.tSize.Margin = new System.Windows.Forms.Padding(0, 3, 10, 2);
             this.tSize.Name = "tSize";
-            this.tSize.Size = new System.Drawing.Size(260, 23);
+            this.tSize.Size = new System.Drawing.Size(260, 22);
             this.tSize.Text = "Size : 1 Bytes / 10 Bytes";
             // 
             // tMessage
@@ -92,7 +92,7 @@
             this.tMessage.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.tMessage.Margin = new System.Windows.Forms.Padding(30, 3, 0, 2);
             this.tMessage.Name = "tMessage";
-            this.tMessage.Size = new System.Drawing.Size(60, 23);
+            this.tMessage.Size = new System.Drawing.Size(60, 22);
             this.tMessage.Text = "[Err]";
             // 
             // tInput
@@ -101,7 +101,7 @@
             this.tInput.Font = new System.Drawing.Font("Consolas", 9.857143F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.tInput.Location = new System.Drawing.Point(0, 28);
             this.tInput.Name = "tInput";
-            this.tInput.Size = new System.Drawing.Size(751, 232);
+            this.tInput.Size = new System.Drawing.Size(751, 233);
             this.tInput.TabIndex = 2;
             this.tInput.Text = "";
             this.tInput.TextChanged += new System.EventHandler(this.tInput_TextChanged);
@@ -116,7 +116,6 @@
             this.Controls.Add(this.toolStrip1);
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Name = "IndirectInput";
-            this.Text = "Indirect Input";
             this.toolStrip1.ResumeLayout(false);
             this.toolStrip1.PerformLayout();
             this.statusStrip1.ResumeLayout(false);

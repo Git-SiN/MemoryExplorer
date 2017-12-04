@@ -20,9 +20,11 @@ PDEVICE_OBJECT pMyDevice = NULL;
 #define MESSAGE_TYPE_THREADS				(ULONG)3
 #define MESSAGE_TYPE_SECURITY				(ULONG)4
 #define	MESSAGE_TYPE_HANDLES				(ULONG)5
-#define MESSAGE_TYPE_FINDER_UNICODE			(ULONG)6
+#define MESSAGE_TYPE_OBJECT_UNICODE			(ULONG)6
 #define MESSAGE_TYPE_WORKINGSET_SUMMARY		(ULONG)7
 #define MESSAGE_TYPE_WORKINGSET_LIST		(ULONG)8
+#define MESSAGE_TYPE_PATTERN_UNICODE		(ULONG)9
+#define MESSAGE_TYPE_PATTERN_STRING			(ULONG)10
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define VA_FOR_PAGE_DIRECTORY_TABLE			(ULONG)0xC0600000		// x86 PAE [x86 : 0xC0300000]
@@ -74,6 +76,29 @@ typedef struct _MESSAGE_LIST {
 #pragma pack()
 
 PVOID NTAPI ObGetObjectType(PVOID pObject);
+
+BOOLEAN QueuingMessage(PMESSAGE_LIST pMessage) {
+	PDEVICE_EXTENSION pExtension = (PDEVICE_EXTENSION)(pMyDevice->DeviceExtension);
+
+	if ((pExtension == NULL) || (pMessage == NULL))
+		return FALSE;
+
+	__try {
+		ExInterlockedInsertTailList(&(pExtension->MessageQueue), pMessage, &(pExtension->MessageLock));
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		return FALSE;
+	}
+
+	__try {
+		KeReleaseSemaphore(&(pExtension->CommunicationSemapohore), 0, 1, FALSE);
+	}
+	__except (EXCEPTION_EXECUTE_HANDLER) {
+		// In this case, just proceed.
+	}
+	
+	return TRUE;
+}
 
 NTSTATUS ManipulateAddressTables(PDEVICE_EXTENSION pExtension) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
@@ -262,13 +287,7 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 			// Mapping to System Address.
 			if ((pExtension->pTargetObject->pUsingMdl) != NULL) {
 				mappedAddress = MmMapLockedPages(pExtension->pTargetObject->pUsingMdl, KernelMode);
-				if (mappedAddress) {
-					if ((pExtension->pTargetObject->pUsingMdl->MdlFlags) & MDL_MAPPED_TO_SYSTEM_VA) {
-						DbgPrintEx(101, 0, "[[[[[[[[[[[[ MmMapLockPages() succeeded, Flag set. ]]]]]]]]]]]]]]\n");
-					}
-					pExtension->pTargetObject->pUsingMdl->MdlFlags |= MDL_MAPPED_TO_SYSTEM_VA;
-				}
-				else {
+				if (mappedAddress == NULL) {
 					DbgPrintEx(101, 0, "    -> Failed to map to System Address.\n");
 					IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
 					pExtension->pTargetObject->pUsingMdl = NULL;
@@ -1456,7 +1475,8 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 	return memoryDump;
 }
 
-NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode, PDEVICE_EXTENSION pExtension) {
+
+NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 	PUCHAR memoryDump = NULL;
 	ULONG i = 0;
@@ -1465,7 +1485,21 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode, PDEVICE_EXTENSION pExtensi
 	USHORT tmpLength = 0;
 	BOOLEAN isKernelMode = FALSE;
 	PMESSAGE_LIST pMessage = NULL;
+	
 
+	// Mode Check.
+	if (pBuffer[0] > 0x7FFFFFFF) {
+		if ((pBuffer[0] + pBuffer[1]) < pBuffer[0])		// Overflow
+			return ntStatus;
+		else
+			isKernelMode = TRUE;
+	}
+	else {
+		if ((pBuffer[0] + pBuffer[1]) > 0x7FFFFFFF)
+			return ntStatus;
+	}
+		
+	
 	memoryDump = MemoryDumping(pBuffer[0], pBuffer[1]);
 
 	// for TEST......
@@ -1479,12 +1513,9 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode, PDEVICE_EXTENSION pExtensi
 	/////////////////////////////
 
 
-	if (memoryDump != NULL) {
-		if (pBuffer[0] > 0x7FFFFFFF)
-			isKernelMode = TRUE;
-		
+	if (memoryDump != NULL) {		
 		switch (ctlCode) {
-		case IOCTL_FIND_PATTERN_UNICODE:
+		case IOCTL_FIND_OBJECT_UNICODE:
 			// LIMIT : the length of UNICODE_STRING < 256
 			for (i = 0; i <= (pBuffer[1] - sizeof(UNICODE_STRING)); i++) {
 				pCurrent = memoryDump + i;
@@ -1495,54 +1526,38 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode, PDEVICE_EXTENSION pExtensi
 					&& (tmpBuffer != NULL)) {
 					if ((isKernelMode && ((ULONG)tmpBuffer > 0x7FFFFFFF)) || ((!isKernelMode) && ((ULONG)tmpBuffer <= 0x7FFFFFFF))) {
 						
-							// if the length is above 100, Trucate it...
-							tmpBuffer = MemoryDumping((ULONG)tmpBuffer, (tmpLength > 200) ? 200 : tmpLength);
-							pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
-							if (pMessage == NULL) {
-								// if fails to allocate, Just finish.
-								DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool in Pattern Finder...\n ");
-								if (tmpBuffer != NULL)
-									ExFreePool(tmpBuffer);
+						// if the length is above 100, Trucate it...
+						tmpBuffer = MemoryDumping((ULONG)tmpBuffer, (tmpLength > 200) ? 200 : tmpLength);
+						pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
+						if (pMessage == NULL) {
+							// if fails to allocate, Just finish.
+							DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool in Pattern Finder...\n ");
+							if (tmpBuffer != NULL)
+								ExFreePool(tmpBuffer);
+							ExFreePool(memoryDump);
+							return ntStatus;
+						}
+						else {
+							RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+							pMessage->Message.MessageType = MESSAGE_TYPE_OBJECT_UNICODE;
+
+							// if detect the 8 bytes data assumed as UNICODE_STRING, Dump it.
+							RtlCopyMemory(pMessage->Message.Buffer, pCurrent, 8);
+
+							// Dump the contents of assumed UNICODE_STRING's Buffer.
+							//		-> if tmpBuffer is NULL, failed the dump.
+							if (tmpBuffer) {
+								RtlCopyMemory((pMessage->Message.Buffer) + 8, tmpBuffer, (tmpLength > 200) ? 200 : (ULONG)tmpLength);
+								ExFreePool(tmpBuffer);
+							}
+
+							// Queuing...
+							if (!QueuingMessage(pMessage)) {
+								ExFreePool(pMessage);
 								ExFreePool(memoryDump);
 								return ntStatus;
 							}
-							else {
-								RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
-								pMessage->Message.MessageType = MESSAGE_TYPE_FINDER_UNICODE;
-
-								// if detect the 8 bytes data assumed as UNICODE_STRING, Dump it.
-								RtlCopyMemory(pMessage->Message.Buffer, pCurrent, 8);
-
-								// Dump the contents of assumed UNICODE_STRING's Buffer.
-								//		-> if tmpBuffer is NULL, failed the dump.
-								if (tmpBuffer) {
-									RtlCopyMemory((pMessage->Message.Buffer) + 8, tmpBuffer, (tmpLength > 200) ? 200 : (ULONG)tmpLength);
-									ExFreePool(tmpBuffer);
-								}
-
-								// Queuing...
-								__try {
-									ExInterlockedInsertTailList(&(pExtension->MessageQueue), &(pMessage->ListEntry), &(pExtension->MessageLock));
-								}
-								__except (EXCEPTION_EXECUTE_HANDLER) {
-									DbgPrintEx(101, 0, "[ERROR] Failed to queue a message at Pattern Finder...\n");
-									ExFreePool(pMessage);
-
-									// In this case, just finishing search.
-									ExFreePool(memoryDump);
-									return ntStatus;
-								}
-
-								__try {
-									KeReleaseSemaphore(&(pExtension->CommunicationSemapohore), 0, 1, FALSE);
-								}
-								__except (EXCEPTION_EXECUTE_HANDLER) {
-									DbgPrintEx(101, 0, "[ERROR] Failed to release the semaphore at Pattern Finder.\n");
-									// In this case, just proceed.
-
-								}
-							}
-						
+						}
 					}
 				}
 			}
@@ -1555,6 +1570,123 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode, PDEVICE_EXTENSION pExtensi
 		ExFreePool(memoryDump);
 	}
 	
+	return ntStatus;
+}
+
+// Most-Significant 2 bytes == level
+NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
+	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
+	ULONG startAddress = 0;
+	USHORT size = 0;
+	USHORT level = 0;
+	PUCHAR pDump = NULL;
+	ULONG tmpLength = 0;
+	USHORT i = 0;
+	BOOLEAN isKernelMode = FALSE;
+	PMESSAGE_LIST pMessage = NULL;
+
+	startAddress = pBuffer[0];
+	level = ((PUSHORT)pBuffer)[2];
+	size = ((PUSHORT)pBuffer)[3];
+
+	// Mode Check.
+	if (startAddress > 0x7FFFFFFF) {
+		if ((startAddress + size) < startAddress)		// Overflow
+			return ntStatus;
+		else
+			isKernelMode = TRUE;
+	}
+	else {
+		if ((startAddress + size) > 0x7FFFFFFF)
+			return ntStatus;
+	}
+
+	pDump = MemoryDumping(startAddress, (ULONG)size);
+	if (pDump == NULL)
+		return ntStatus;
+	
+
+	pMessage = (PMESSAGE_LIST)ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
+	if (pMessage == NULL) {
+		DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool in PatternFinder()\n");
+		goto ERROR_OCCURED;
+	}
+	RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+
+	for (i = 0; i < size; i++) {
+		switch (ctlCode) {
+			case IOCTL_FIND_PATTERN_UNICODE:	// buffer[0] : ULONG Length / buffer[1] : ULONG Address / bufer[2] : WCHAR Contents
+				tmpLength = ((size - i) / 2);
+				if (tmpLength > level) {
+					*(PULONG)(pMessage->Message.Buffer) = wcsnlen_s(pDump + i, tmpLength);
+					if ((*(PULONG)(pMessage->Message.Buffer) < tmpLength) && (*(PULONG)(pMessage->Message.Buffer) >= level)) {
+						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
+
+						// if Length > 256, truncate .
+						RtlCopyMemory((pMessage->Message.Buffer) + 8, pDump + i, ((*(PULONG)(pMessage->Message.Buffer)) > 255)? (255 * 2) : ((*(PULONG)(pMessage->Message.Buffer)) * 2));
+						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_UNICODE;
+					}
+				}
+				else
+					goto ERROR_OCCURED;		
+				break;
+			case IOCTL_FIND_PATTERN_STRING:		// buffer[0] : ULONG Length / buffer[1] : ULONG Address / bufer[2] : UCHAR Contents
+				tmpLength = size - i;
+				if (tmpLength > level) {
+					*(PULONG)(pMessage->Message.Buffer) = strnlen_s(pDump + i, tmpLength);
+					if ((*(PULONG)(pMessage->Message.Buffer) < tmpLength) && (*(PULONG)(pMessage->Message.Buffer) >= level)) {
+						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
+
+						// if Length > 256, truncate.
+						if (tmpLength > 255)
+							tmpLength = 255;
+
+						// Store in UNICODE.
+						while (tmpLength--)
+							(pMessage->Message.Buffer + 8)[tmpLength * 2] = (pDump + i)[tmpLength];
+
+						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_STRING;
+					}
+				}
+				else
+					goto ERROR_OCCURED;				
+				break;
+			case	IOCTL_FIND_PATTERN_SINGLELIST: break;
+			case	IOCTL_FIND_PATTERN_DOUBLELIST: break;
+		}
+
+		// If found, Queuing...
+		if (pMessage->Message.MessageType != 0) {
+			if (QueuingMessage(pMessage)) {
+				pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
+				if (pMessage)
+					RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+				else
+					goto ERROR_OCCURED;
+			}
+			else {
+				ExFreePool(pMessage);
+				goto ERROR_OCCURED;
+			}
+		}
+	}
+	ntStatus = STATUS_SUCCESS;
+
+ERROR_OCCURED:
+	ExFreePool(pDump);
+
+	return ntStatus;
+}
+
+NTSTATUS PointerFinder(PULONG pBuffer, ULONG ctlCode, PDEVICE_EXTENSION pExtension) {
+	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
+
+	return ntStatus;
+}
+
+NTSTATUS ValueFinder(PULONG pBuffer, ULONG ctlCode, PDEVICE_EXTENSION pExtension) {
+	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
+
 	return ntStatus;
 }
 
@@ -1969,10 +2101,37 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 				ntStatus = STATUS_SUCCESS;
 		}
 		break;
-	case IOCTL_FIND_PATTERN_UNICODE:
+	case IOCTL_FIND_OBJECT_UNICODE:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
 		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 8)) {
-			ntStatus = PatternFinder(pBuffer, ctlCode, pExtension);
+			ntStatus = ObjectFinder(pBuffer, ctlCode);
+		}
+		pIrp->IoStatus.Information = 0;
+		break;
+	case IOCTL_FIND_PATTERN_UNICODE:
+	case IOCTL_FIND_PATTERN_STRING:
+	case IOCTL_FIND_PATTERN_SINGLELIST:
+	case IOCTL_FIND_PATTERN_DOUBLELIST:
+		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
+		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 8)) {
+			ntStatus = PatternFinder(pBuffer, ctlCode);
+		}
+		pIrp->IoStatus.Information = 0;
+		break;
+	case IOCTL_FIND_POINTER_UNICODE:
+	case IOCTL_FIND_POINTER_STRING:
+		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
+		if (pBuffer != NULL) {
+			ntStatus = PointerFinder(pBuffer, ctlCode, pExtension);
+		}
+		pIrp->IoStatus.Information = 0;
+		break;
+	case IOCTL_FIND_VALUE_UNICODE:
+	case IOCTL_FIND_VALUE_STRING:
+	case IOCTL_FIND_VALUE_NUMERIC:
+		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
+		if (pBuffer != NULL) {
+			ntStatus = ValueFinder(pBuffer, ctlCode, pExtension);
 		}
 		pIrp->IoStatus.Information = 0;
 		break;

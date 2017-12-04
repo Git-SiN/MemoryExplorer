@@ -45,7 +45,7 @@ namespace MemoryExplorer
                 tInput_TextChanged(this, null);
             }
 
-            this.Text += string.Format("Start Address : 0x{0:X8}", startAddress);
+            this.Text = string.Format("Start Address : 0x{0:X8}", startAddress);
         }
 
         private void toolStripButton1_Click(object sender, EventArgs e)

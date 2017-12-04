@@ -36,7 +36,13 @@
             this.toolsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.finderToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
             this.patternToolStripMenuItem1 = new System.Windows.Forms.ToolStripMenuItem();
-            this.bUnicodeFinder = new System.Windows.Forms.ToolStripMenuItem();
+            this.bObjectUnicode = new System.Windows.Forms.ToolStripMenuItem();
+            this.patternToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.bPatternAscii = new System.Windows.Forms.ToolStripMenuItem();
+            this.bPatternUnicode = new System.Windows.Forms.ToolStripMenuItem();
+            this.valueToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.bValueAscii = new System.Windows.Forms.ToolStripMenuItem();
+            this.bValueUnicode = new System.Windows.Forms.ToolStripMenuItem();
             this.addressTranslatorToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.optionsToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.bRestartThread = new System.Windows.Forms.ToolStripMenuItem();
@@ -164,31 +170,79 @@
             // finderToolStripMenuItem1
             // 
             this.finderToolStripMenuItem1.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.patternToolStripMenuItem1});
+            this.patternToolStripMenuItem1,
+            this.patternToolStripMenuItem,
+            this.valueToolStripMenuItem});
             this.finderToolStripMenuItem1.Name = "finderToolStripMenuItem1";
-            this.finderToolStripMenuItem1.Size = new System.Drawing.Size(331, 32);
-            this.finderToolStripMenuItem1.Text = "Finder";
+            this.finderToolStripMenuItem1.Size = new System.Drawing.Size(474, 32);
+            this.finderToolStripMenuItem1.Text = "Memory Finder";
             // 
             // patternToolStripMenuItem1
             // 
             this.patternToolStripMenuItem1.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.bUnicodeFinder});
+            this.bObjectUnicode});
             this.patternToolStripMenuItem1.Name = "patternToolStripMenuItem1";
-            this.patternToolStripMenuItem1.Size = new System.Drawing.Size(188, 32);
-            this.patternToolStripMenuItem1.Text = "Pattern";
+            this.patternToolStripMenuItem1.Size = new System.Drawing.Size(211, 32);
+            this.patternToolStripMenuItem1.Text = "Object";
             // 
-            // bUnicodeFinder
+            // bObjectUnicode
             // 
-            this.bUnicodeFinder.Name = "bUnicodeFinder";
-            this.bUnicodeFinder.Size = new System.Drawing.Size(279, 32);
-            this.bUnicodeFinder.Text = "UNICODE_STRING";
-            this.bUnicodeFinder.Click += new System.EventHandler(this.bUnicodeFinder_Click);
+            this.bObjectUnicode.Name = "bObjectUnicode";
+            this.bObjectUnicode.Size = new System.Drawing.Size(279, 32);
+            this.bObjectUnicode.Text = "UNICODE_STRING";
+            this.bObjectUnicode.Click += new System.EventHandler(this.bObjectUnicode_Click);
+            // 
+            // patternToolStripMenuItem
+            // 
+            this.patternToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.bPatternAscii,
+            this.bPatternUnicode});
+            this.patternToolStripMenuItem.Name = "patternToolStripMenuItem";
+            this.patternToolStripMenuItem.Size = new System.Drawing.Size(211, 32);
+            this.patternToolStripMenuItem.Text = "Pattern";
+            // 
+            // bPatternAscii
+            // 
+            this.bPatternAscii.Name = "bPatternAscii";
+            this.bPatternAscii.Size = new System.Drawing.Size(279, 32);
+            this.bPatternAscii.Text = "Ascii String";
+            this.bPatternAscii.Click += new System.EventHandler(this.bPatternString_Click);
+            // 
+            // bPatternUnicode
+            // 
+            this.bPatternUnicode.Name = "bPatternUnicode";
+            this.bPatternUnicode.Size = new System.Drawing.Size(279, 32);
+            this.bPatternUnicode.Text = "Unicode String";
+            this.bPatternUnicode.Click += new System.EventHandler(this.bPatternString_Click);
+            // 
+            // valueToolStripMenuItem
+            // 
+            this.valueToolStripMenuItem.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.bValueAscii,
+            this.bValueUnicode});
+            this.valueToolStripMenuItem.Name = "valueToolStripMenuItem";
+            this.valueToolStripMenuItem.Size = new System.Drawing.Size(211, 32);
+            this.valueToolStripMenuItem.Text = "Value";
+            // 
+            // bValueAscii
+            // 
+            this.bValueAscii.Name = "bValueAscii";
+            this.bValueAscii.Size = new System.Drawing.Size(279, 32);
+            this.bValueAscii.Text = "Ascii String";
+            this.bValueAscii.Click += new System.EventHandler(this.bValueString_Click);
+            // 
+            // bValueUnicode
+            // 
+            this.bValueUnicode.Name = "bValueUnicode";
+            this.bValueUnicode.Size = new System.Drawing.Size(279, 32);
+            this.bValueUnicode.Text = "Unicode String";
+            this.bValueUnicode.Click += new System.EventHandler(this.bValueString_Click);
             // 
             // addressTranslatorToolStripMenuItem
             // 
             this.addressTranslatorToolStripMenuItem.Name = "addressTranslatorToolStripMenuItem";
-            this.addressTranslatorToolStripMenuItem.Size = new System.Drawing.Size(331, 32);
-            this.addressTranslatorToolStripMenuItem.Text = "Address Translator";
+            this.addressTranslatorToolStripMenuItem.Size = new System.Drawing.Size(474, 32);
+            this.addressTranslatorToolStripMenuItem.Text = "Address Translator [VA to PA]";
             this.addressTranslatorToolStripMenuItem.Click += new System.EventHandler(this.addressTranslatorToolStripMenuItem_Click);
             // 
             // optionsToolStripMenuItem
@@ -451,7 +505,7 @@
             this.lHandles.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lHandles.FullRowSelect = true;
             this.lHandles.GridLines = true;
-            this.lHandles.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.None;
+            this.lHandles.HeaderStyle = System.Windows.Forms.ColumnHeaderStyle.Nonclickable;
             this.lHandles.HideSelection = false;
             this.lHandles.Location = new System.Drawing.Point(3, 3);
             this.lHandles.MultiSelect = false;
@@ -848,7 +902,7 @@
         private System.Windows.Forms.ToolStripMenuItem toolsToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem finderToolStripMenuItem1;
         private System.Windows.Forms.ToolStripMenuItem patternToolStripMenuItem1;
-        private System.Windows.Forms.ToolStripMenuItem bUnicodeFinder;
+        private System.Windows.Forms.ToolStripMenuItem bObjectUnicode;
         private System.Windows.Forms.ToolStripMenuItem addressTranslatorToolStripMenuItem;
         private System.Windows.Forms.TabPage tabPage7;
         private System.Windows.Forms.ListView lWorkingSetList;
@@ -863,6 +917,12 @@
         private System.Windows.Forms.ToolStripMenuItem bIndirect;
         private System.Windows.Forms.ToolStripDropDownButton bManipulate;
         private System.Windows.Forms.ToolStripMenuItem bUseHistory;
+        private System.Windows.Forms.ToolStripMenuItem patternToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem bPatternAscii;
+        private System.Windows.Forms.ToolStripMenuItem bPatternUnicode;
+        private System.Windows.Forms.ToolStripMenuItem valueToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem bValueAscii;
+        private System.Windows.Forms.ToolStripMenuItem bValueUnicode;
     }
 }
 
