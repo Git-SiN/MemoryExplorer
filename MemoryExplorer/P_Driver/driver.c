@@ -2103,7 +2103,7 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 		break;
 	case IOCTL_FIND_OBJECT_UNICODE:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 8)) {
+		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 524)) {
 			ntStatus = ObjectFinder(pBuffer, ctlCode);
 		}
 		pIrp->IoStatus.Information = 0;
@@ -2113,7 +2113,7 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 	case IOCTL_FIND_PATTERN_SINGLELIST:
 	case IOCTL_FIND_PATTERN_DOUBLELIST:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 8)) {
+		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 524)) {
 			ntStatus = PatternFinder(pBuffer, ctlCode);
 		}
 		pIrp->IoStatus.Information = 0;

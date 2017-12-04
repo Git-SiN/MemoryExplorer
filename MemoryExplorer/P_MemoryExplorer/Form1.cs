@@ -115,10 +115,9 @@ namespace MemoryExplorer
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode, Pack = 1)]
     public struct FINDER_ENTRY
     {
-        public ushort Length;
-        public ushort MaximumLength;
+        public uint Length;
         public uint Address;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 104)]  // 혹시 널문자 짤릴까봐.. 기본은 100
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]  
         public string Contents;
     }
 
@@ -179,6 +178,21 @@ namespace MemoryExplorer
         private const byte IOCTL_MEMORY_DUMP_SUBSECTION = 0x65;
 
         private const byte IOCTL_MEMORY_DUMP_RANGE = 0x70;
+
+        const byte IOCTL_FIND_OBJECT_UNICODE = 0x90;
+
+        const byte IOCTL_FIND_PATTERN_UNICODE = 0xA0;
+        const byte IOCTL_FIND_PATTERN_STRING = 0xA1;
+        const byte IOCTL_FIND_PATTERN_SINGLELIST = 0xA2;
+        const byte IOCTL_FIND_PATTERN_DOUBLELIST = 0xA3;
+
+        const byte IOCTL_FIND_POINTER_UNICODE = 0xB0;
+        const byte IOCTL_FIND_POINTER_STRING = 0xB1;
+
+        const byte IOCTL_FIND_VALUE_UNICODE = 0xB5;
+        const byte IOCTL_FIND_VALUE_STRING = 0xB6;
+        const byte IOCTL_FIND_VALUE_NUMERIC = 0xB7;
+
 
         internal const string dllName = "MemoryExplorer.dll";
         [DllImport(dllName, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Unicode, SetLastError = true)]
@@ -519,17 +533,17 @@ namespace MemoryExplorer
             switch (type)
             {
                 case (uint)(MESSAGE_TYPE.Object_Unicode):
-                    entry[1] = String.Format("0x{0:X4}", buffer.Length);
-                    entry[2] = String.Format("0x{0:X4}", buffer.MaximumLength);
+                    entry[1] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
+                    entry[2] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
                     entry[3] = String.Format("0x{0:X8}", buffer.Address);
                     entry[4] = buffer.Contents;
-                    if ((entry[4].Length * 2) < buffer.Length)
+                    if ((entry[4].Length * 2) < (buffer.Length & 0xFFFF))
                         entry[4] += "...";
                     break;
                 case (uint)(MESSAGE_TYPE.Pattern_Unicode):
                 case (uint)(MESSAGE_TYPE.Pattern_String):
                     entry[1] = String.Format("0x{0:X8}", buffer.Address);
-                    entry[2] = String.Format("0x{0:X8}", (buffer.Length + ((uint)(buffer.MaximumLength) << 16)));
+                    entry[2] = String.Format("0x{0:X8}", buffer.Length);
                     entry[3] = buffer.Contents;   
                     break;
             }
@@ -1131,9 +1145,9 @@ namespace MemoryExplorer
             lFinder.Columns.Add("Length", 80);
             lFinder.Columns.Add("MaxL", 80);
             lFinder.Columns.Add("Address", 100);
-            lFinder.Columns.Add("Content", 400);
+            lFinder.Columns.Add("Contents", 400);
             
-            ConditionConfiguration configForm = new ConditionConfiguration(this, 0, "Finder");
+            ConditionConfiguration configForm = new ConditionConfiguration(this, IOCTL_FIND_OBJECT_UNICODE, "Finder");
             DialogResult result = configForm.ShowDialog();
 
             if (result == DialogResult.OK)
@@ -1193,7 +1207,7 @@ namespace MemoryExplorer
     
             if (bSelect.Text == "UnSelect")
             {
-                ConditionConfiguration configForm = new ConditionConfiguration(this, (byte)1, "Translator");
+                ConditionConfiguration configForm = new ConditionConfiguration(this, 0, "Translator");
                 DialogResult result = configForm.ShowDialog();
 
                 if (result == DialogResult.OK)
@@ -1299,20 +1313,32 @@ namespace MemoryExplorer
 
         private void bPatternString_Click(object sender, EventArgs e)
         {
-
             if (bSelect.Text != "UnSelect")
             {
                 MessageBox.Show("First, Select a Target Process.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
+            byte type = 0;
+            switch (((ToolStripMenuItem)sender).Text)
+            {
+                case "Ascii String":
+                    type = IOCTL_FIND_PATTERN_STRING;
+                    break;
+                case "Unicode String":
+                    type = IOCTL_FIND_PATTERN_UNICODE;
+                    break;
+                default:
+                    return;
+            }
+
             lFinder.Clear();
             lFinder.Columns.Add("", 30);
             lFinder.Columns.Add("Address", 100);
             lFinder.Columns.Add("Length", 80);
-            lFinder.Columns.Add("Content", 400);
-
-            ConditionConfiguration configForm = new ConditionConfiguration(this, 2, "Finder");
+            lFinder.Columns.Add("Contents", 400);
+            
+            ConditionConfiguration configForm = new ConditionConfiguration(this, type, "Finder");
             DialogResult result = configForm.ShowDialog();
 
             if (result == DialogResult.OK)
@@ -1338,13 +1364,26 @@ namespace MemoryExplorer
                 return;
             }
 
+            byte type = 0;
+            switch (((ToolStripMenuItem)sender).Text)
+            {
+                case "Ascii String":
+                    type = IOCTL_FIND_VALUE_STRING;
+                    break;
+                case "Unicode String":
+                    type = IOCTL_FIND_VALUE_UNICODE;
+                    break;
+                default:
+                    return;
+            }
+
             lFinder.Clear();
             lFinder.Columns.Add("", 30);
             lFinder.Columns.Add("Address", 100);
             lFinder.Columns.Add("Length", 80);
-            lFinder.Columns.Add("Content", 400);
+            lFinder.Columns.Add("Contents", 400);
 
-            ConditionConfiguration configForm = new ConditionConfiguration(this, 3, "Finder");
+            ConditionConfiguration configForm = new ConditionConfiguration(this, type, "Finder");
             DialogResult result = configForm.ShowDialog();
 
             if (result == DialogResult.OK)
