@@ -84,7 +84,7 @@ BOOLEAN QueuingMessage(PMESSAGE_LIST pMessage) {
 		return FALSE;
 
 	__try {
-		ExInterlockedInsertTailList(&(pExtension->MessageQueue), pMessage, &(pExtension->MessageLock));
+		ExInterlockedInsertTailList(&(pExtension->MessageQueue), &(pMessage->ListEntry), &(pExtension->MessageLock));
 	}
 	__except (EXCEPTION_EXECUTE_HANDLER) {
 		return FALSE;
@@ -1488,19 +1488,18 @@ NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 	
 
 	// Mode Check.
-	if (pBuffer[0] > 0x7FFFFFFF) {
-		if ((pBuffer[0] + pBuffer[1]) < pBuffer[0])		// Overflow
+	if (pBuffer[1] > 0x7FFFFFFF) {
+		if ((pBuffer[1] + pBuffer[0]) < pBuffer[1])		// Overflow
 			return ntStatus;
 		else
 			isKernelMode = TRUE;
 	}
 	else {
-		if ((pBuffer[0] + pBuffer[1]) > 0x7FFFFFFF)
+		if ((pBuffer[1] + pBuffer[0]) > 0x7FFFFFFF)
 			return ntStatus;
 	}
 		
-	
-	memoryDump = MemoryDumping(pBuffer[0], pBuffer[1]);
+	memoryDump = MemoryDumping(pBuffer[1], pBuffer[0]);
 
 	// for TEST......
 	//if (memoryDump) {
@@ -1517,7 +1516,7 @@ NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 		switch (ctlCode) {
 		case IOCTL_FIND_OBJECT_UNICODE:
 			// LIMIT : the length of UNICODE_STRING < 256
-			for (i = 0; i <= (pBuffer[1] - sizeof(UNICODE_STRING)); i++) {
+			for (i = 0; i <= (pBuffer[0] - sizeof(UNICODE_STRING)); i++) {
 				pCurrent = memoryDump + i;
 				tmpLength = *(PUSHORT)pCurrent;
 				tmpBuffer = (PUCHAR)(*(PULONG)(pCurrent + 4));
@@ -1585,9 +1584,11 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	BOOLEAN isKernelMode = FALSE;
 	PMESSAGE_LIST pMessage = NULL;
 
-	startAddress = pBuffer[0];
-	level = ((PUSHORT)pBuffer)[2];
-	size = ((PUSHORT)pBuffer)[3];
+	startAddress = pBuffer[1];
+	size = ((PUSHORT)pBuffer)[0];
+	level = ((PUSHORT)pBuffer)[1];
+
+	////////////// 여기까지만 체크  /////////////////////////////
 
 	// Mode Check.
 	if (startAddress > 0x7FFFFFFF) {
@@ -1605,7 +1606,7 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	if (pDump == NULL)
 		return ntStatus;
 	
-
+	
 	pMessage = (PMESSAGE_LIST)ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
 	if (pMessage == NULL) {
 		DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool in PatternFinder()\n");
@@ -1616,7 +1617,7 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	for (i = 0; i < size; i++) {
 		switch (ctlCode) {
 			case IOCTL_FIND_PATTERN_UNICODE:	// buffer[0] : ULONG Length / buffer[1] : ULONG Address / bufer[2] : WCHAR Contents
-				tmpLength = ((size - i) / 2);
+				tmpLength = ((size - i) / 2);		// tmpLength is including NULL
 				if (tmpLength > level) {
 					*(PULONG)(pMessage->Message.Buffer) = wcsnlen_s(pDump + i, tmpLength);
 					if ((*(PULONG)(pMessage->Message.Buffer) < tmpLength) && (*(PULONG)(pMessage->Message.Buffer) >= level)) {
@@ -1627,8 +1628,8 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_UNICODE;
 					}
 				}
-				else
-					goto ERROR_OCCURED;		
+				else // Search Completion.
+					ntStatus = STATUS_SUCCESS;
 				break;
 			case IOCTL_FIND_PATTERN_STRING:		// buffer[0] : ULONG Length / buffer[1] : ULONG Address / bufer[2] : UCHAR Contents
 				tmpLength = size - i;
@@ -1648,14 +1649,14 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_STRING;
 					}
 				}
-				else
-					goto ERROR_OCCURED;				
+				else  // Search Completion.
+					ntStatus = STATUS_SUCCESS;				
 				break;
-			case	IOCTL_FIND_PATTERN_SINGLELIST: break;
-			case	IOCTL_FIND_PATTERN_DOUBLELIST: break;
+			case	IOCTL_FIND_PATTERN_SINGLELIST: goto ERROR_OCCURED;	break;
+			case	IOCTL_FIND_PATTERN_DOUBLELIST: goto ERROR_OCCURED;	break;
 		}
 
-		// If found, Queuing...
+		// If found, the Message Queuing...
 		if (pMessage->Message.MessageType != 0) {
 			if (QueuingMessage(pMessage)) {
 				pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
@@ -1668,9 +1669,13 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 				ExFreePool(pMessage);
 				goto ERROR_OCCURED;
 			}
+
+			// Finish
+			if (NT_SUCCESS(ntStatus))
+				break;
 		}
 	}
-	ntStatus = STATUS_SUCCESS;
+
 
 ERROR_OCCURED:
 	ExFreePool(pDump);
@@ -2103,17 +2108,17 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 		break;
 	case IOCTL_FIND_OBJECT_UNICODE:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 524)) {
+		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 520)) {
 			ntStatus = ObjectFinder(pBuffer, ctlCode);
 		}
 		pIrp->IoStatus.Information = 0;
 		break;
 	case IOCTL_FIND_PATTERN_UNICODE:
 	case IOCTL_FIND_PATTERN_STRING:
-	case IOCTL_FIND_PATTERN_SINGLELIST:
-	case IOCTL_FIND_PATTERN_DOUBLELIST:
+	//case IOCTL_FIND_PATTERN_SINGLELIST:
+	//case IOCTL_FIND_PATTERN_DOUBLELIST:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 524)) {
+		if ((pBuffer != NULL) && ((irpStack->Parameters.DeviceIoControl.InputBufferLength) == 520)) {
 			ntStatus = PatternFinder(pBuffer, ctlCode);
 		}
 		pIrp->IoStatus.Information = 0;

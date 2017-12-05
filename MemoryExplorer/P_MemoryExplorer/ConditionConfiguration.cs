@@ -202,7 +202,7 @@ namespace MemoryExplorer
                             tOpt1.SelectAll();
                             return;
                         }
-                        if ((mainForm.conditionLevel <= 2) || (mainForm.conditionLevel > 10))
+                        if ((mainForm.conditionLevel < 2) || (mainForm.conditionLevel > 10))
                         {
                             MessageBox.Show("Input the \"Minimum Length\" in Decimal.\r\n[2 ~ 10]", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             tOpt1.Focus();
@@ -223,7 +223,7 @@ namespace MemoryExplorer
 
 
                 // Send Message
-                if (SendControlMessageByPointer(mode, ref pMessage, 524) == 1)
+                if (SendControlMessageByPointer(mode, ref pMessage, 520) == 1)
                 {
                     mainForm.conditionStart = pMessage.Address;
                     mainForm.conditionSize = pMessage.Length;
