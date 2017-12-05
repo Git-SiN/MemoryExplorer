@@ -1572,6 +1572,19 @@ NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 	return ntStatus;
 }
 
+// KOREAN : 0xAC00 ~ 0xD7A3
+// ASCII : 0x20 ~ 0x7E
+BOOLEAN UnicodeCheck(USHORT code)
+{
+	if ((code >= 0x20) && (code <= 0x7E))
+		return TRUE;
+	else if ((code >= 0xAC00) && (code <= 0xD7A3))
+		return TRUE;
+	else
+		return FALSE;
+
+}
+
 // Most-Significant 2 bytes == level
 NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
@@ -1614,43 +1627,30 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	}
 	RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
 
-	for (i = 0; i < size; i++) {
+	for (i = 0; i < (size - level);) {
 		switch (ctlCode) {
+			// UNICODE : Only English & Korean
 			case IOCTL_FIND_PATTERN_UNICODE:	// buffer[0] : ULONG Length / buffer[1] : ULONG Address / bufer[2] : WCHAR Contents
-				tmpLength = ((size - i) / 2);		// tmpLength is including NULL
-				if (tmpLength > level) {
-					*(PULONG)(pMessage->Message.Buffer) = wcsnlen_s(pDump + i, tmpLength);
-					if ((*(PULONG)(pMessage->Message.Buffer) < tmpLength) && (*(PULONG)(pMessage->Message.Buffer) >= level)) {
+				while ( ((2 + i + (tmpLength * 2)) < size) && (UnicodeCheck(*(PUSHORT)(pDump + i + (tmpLength * 2))))) 
+					tmpLength++;
+				
+				if (tmpLength == 0)
+					i++;
+				else {
+					if (tmpLength >= level) {
+						RtlCopyMemory(((pMessage->Message.Buffer) + 8), (pDump + i), (tmpLength * 2));
+						*(PULONG)(pMessage->Message.Buffer) = tmpLength;
 						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
 
-						// if Length > 256, truncate .
-						RtlCopyMemory((pMessage->Message.Buffer) + 8, pDump + i, ((*(PULONG)(pMessage->Message.Buffer)) > 255)? (255 * 2) : ((*(PULONG)(pMessage->Message.Buffer)) * 2));
 						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_UNICODE;
 					}
+					i += (tmpLength * 2);
+					tmpLength = 0;
 				}
-				else // Search Completion.
-					ntStatus = STATUS_SUCCESS;
 				break;
-			case IOCTL_FIND_PATTERN_STRING:		// buffer[0] : ULONG Length / buffer[1] : ULONG Address / bufer[2] : UCHAR Contents
-				tmpLength = size - i;
-				if (tmpLength > level) {
-					*(PULONG)(pMessage->Message.Buffer) = strnlen_s(pDump + i, tmpLength);
-					if ((*(PULONG)(pMessage->Message.Buffer) < tmpLength) && (*(PULONG)(pMessage->Message.Buffer) >= level)) {
-						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
+			case IOCTL_FIND_PATTERN_STRING:
+				
 
-						// if Length > 256, truncate.
-						if (tmpLength > 255)
-							tmpLength = 255;
-
-						// Store in UNICODE.
-						while (tmpLength--)
-							(pMessage->Message.Buffer + 8)[tmpLength * 2] = (pDump + i)[tmpLength];
-
-						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_STRING;
-					}
-				}
-				else  // Search Completion.
-					ntStatus = STATUS_SUCCESS;				
 				break;
 			case	IOCTL_FIND_PATTERN_SINGLELIST: goto ERROR_OCCURED;	break;
 			case	IOCTL_FIND_PATTERN_DOUBLELIST: goto ERROR_OCCURED;	break;
@@ -1669,13 +1669,13 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 				ExFreePool(pMessage);
 				goto ERROR_OCCURED;
 			}
-
-			// Finish
-			if (NT_SUCCESS(ntStatus))
-				break;
 		}
 	}
 
+	if (pMessage) {
+		ExFreePool(pMessage);
+		ntStatus = STATUS_SUCCESS;
+	}
 
 ERROR_OCCURED:
 	ExFreePool(pDump);
