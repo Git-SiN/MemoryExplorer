@@ -283,7 +283,7 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 				IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
 				pExtension->pTargetObject->pUsingMdl = NULL;
 			}
-
+				
 			// Mapping to System Address.
 			if ((pExtension->pTargetObject->pUsingMdl) != NULL) {
 				mappedAddress = MmMapLockedPages(pExtension->pTargetObject->pUsingMdl, KernelMode);
@@ -1463,13 +1463,13 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 		}
 		DiffProcessWorkingSet(&tmp);
 
-	}
+		if (!NT_SUCCESS(ntStatus)) {
+			DbgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
 
-	if (!NT_SUCCESS(ntStatus)) {
-		DbgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
+			ExFreePool(memoryDump);
+			memoryDump = NULL;
+		}
 
-		ExFreePool(memoryDump);
-		memoryDump = NULL;
 	}
 
 	return memoryDump;
