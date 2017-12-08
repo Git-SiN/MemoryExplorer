@@ -159,7 +159,6 @@ namespace MemoryExplorer
         Pattern_String
     }
 
-
     public partial class fMain : Form
     {
         /// <summary>
@@ -527,28 +526,37 @@ namespace MemoryExplorer
 
         private void FinderListing(uint type, FINDER_ENTRY buffer)
         {
-            string[] entry = new string[lFinder.Columns.Count];
-            entry[0] = (lFinder.Items.Count + 1).ToString();
-
-            switch (type)
+            if((buffer.Length > 0) && (buffer.Contents.Length > 0))
             {
-                case (uint)(MESSAGE_TYPE.Object_Unicode):
-                    entry[1] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
-                    entry[2] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
-                    entry[3] = String.Format("0x{0:X8}", buffer.Address);
-                    entry[4] = buffer.Contents;
-                    if ((entry[4].Length * 2) < (buffer.Length & 0xFFFF))
-                        entry[4] += "...";
-                    break;
-                case (uint)(MESSAGE_TYPE.Pattern_Unicode):
-                case (uint)(MESSAGE_TYPE.Pattern_String):
-                    entry[1] = String.Format("0x{0:X8}", buffer.Address);
-                    entry[2] = String.Format("0x{0:X8}", buffer.Length);
-                    entry[3] = buffer.Contents;   
-                    break;
-            }
 
-            lFinder.Items.Add(new ListViewItem(entry));
+                string[] entry = new string[lFinder.Columns.Count];
+                // entry[0] = (lFinder.Items.Count + 1).ToString();
+                //for (int i = 0; i < lFinder.Columns.Count; i++)
+                //    entry[i] = "";
+
+                entry[0] = (lFinder.Columns.Count).ToString();
+                switch (type)
+                {
+                    case (uint)(MESSAGE_TYPE.Object_Unicode):
+                        entry[1] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
+                        entry[2] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
+                        entry[3] = String.Format("0x{0:X8}", buffer.Address);
+                        entry[4] = buffer.Contents;
+                        if ((entry[4].Length * 2) < (buffer.Length & 0xFFFF))
+                            entry[4] += "...";
+                        break;
+                    case (uint)(MESSAGE_TYPE.Pattern_Unicode):
+                    case (uint)(MESSAGE_TYPE.Pattern_String):
+                        entry[1] = String.Format("0x{0:X8}", buffer.Address);
+                        entry[2] = String.Format("0x{0:X4}", buffer.Length);
+                        entry[3] = buffer.Contents;
+                        break;
+                    default:
+                        return;
+                }
+                AppendList(lFinder, entry);
+         //   lFinder.Items.Add(new ListViewItem(entry));
+            }
         }
 
         private ListViewItem MakeVirtualItemForWorkingSet(int i)
@@ -698,8 +706,6 @@ namespace MemoryExplorer
                             case (uint)(MESSAGE_TYPE.WorkingSetList):
                                 WorkingSetMaker(buffer);
                                 break;
-
-
                             default:
                                 MessageBox.Show("Invalid Message Type.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                                 break;
@@ -1140,18 +1146,25 @@ namespace MemoryExplorer
                 return;
             }
 
-            lFinder.Clear();
+            lFinder.Items.Clear();
+            lFinder.Columns.Clear();
+
             lFinder.Columns.Add("", 30);
             lFinder.Columns.Add("Length", 80);
             lFinder.Columns.Add("MaxL", 80);
-            lFinder.Columns.Add("Address", 100);
+            lFinder.Columns.Add("Buffer", 100);
             lFinder.Columns.Add("Contents", 400);
-            
+
+
             ConditionConfiguration configForm = new ConditionConfiguration(this, IOCTL_FIND_OBJECT_UNICODE, "Finder");
             DialogResult result = configForm.ShowDialog();
 
             if (result == DialogResult.OK)
             {
+                conditionStart = configForm.returnStart;
+                conditionSize = configForm.returnSize;
+                conditionLevel = configForm.returnLevel;
+
                 tabControl1.SelectedIndex = 6;
             }
             else if(result == DialogResult.Cancel)
@@ -1212,6 +1225,8 @@ namespace MemoryExplorer
 
                 if (result == DialogResult.OK)
                 {
+                    conditionStart = configForm.returnStart;
+
                     if ((vadForm == null) || (vadForm.IsDisposed))
                     {
                         vadForm = new VadForm(conditionStart, this, 1);
@@ -1332,7 +1347,9 @@ namespace MemoryExplorer
                     return;
             }
 
-            lFinder.Clear();
+            lFinder.Items.Clear();
+            lFinder.Columns.Clear();
+
             lFinder.Columns.Add("", 30);
             lFinder.Columns.Add("Address", 100);
             lFinder.Columns.Add("Length", 80);
@@ -1340,9 +1357,13 @@ namespace MemoryExplorer
             
             ConditionConfiguration configForm = new ConditionConfiguration(this, type, "Finder");
             DialogResult result = configForm.ShowDialog();
-
+            
             if (result == DialogResult.OK)
             {
+                conditionStart = configForm.returnStart;
+                conditionSize = configForm.returnSize;
+                conditionLevel = configForm.returnLevel;
+
                 tabControl1.SelectedIndex = 6;
             }
             else if (result == DialogResult.Cancel)
@@ -1376,8 +1397,9 @@ namespace MemoryExplorer
                 default:
                     return;
             }
+            lFinder.Items.Clear();
+            lFinder.Columns.Clear();
 
-            lFinder.Clear();
             lFinder.Columns.Add("", 30);
             lFinder.Columns.Add("Address", 100);
             lFinder.Columns.Add("Length", 80);
@@ -1388,6 +1410,10 @@ namespace MemoryExplorer
 
             if (result == DialogResult.OK)
             {
+                conditionStart = configForm.returnStart;
+                conditionSize = configForm.returnSize;
+                conditionLevel = configForm.returnLevel;
+
                 tabControl1.SelectedIndex = 6;
             }
             else if (result == DialogResult.Cancel)

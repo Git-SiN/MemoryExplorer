@@ -41,11 +41,14 @@ namespace MemoryExplorer
 
 
 
-        fMain mainForm = null;
-        
+        fMain mainForm = null;        
         byte mode = 0;
+
         FINDER_ENTRY pMessage = new FINDER_ENTRY();
-        
+        internal uint returnStart = 0;
+        internal uint returnSize = 0;
+        internal uint returnLevel = 0;
+
         public ConditionConfiguration()
         {
             InitializeComponent();
@@ -65,6 +68,8 @@ namespace MemoryExplorer
                     tSize.Enabled = false;
                     this.Height = 180;
                     splitContainer1.Panel2Collapsed = true;
+                    bStart.TabIndex = 1;
+                    bCancel.TabIndex = 2;
 
                     groupBox1.Text = "Target Address";
                     lStart.Text = "Virtual Address :";
@@ -87,7 +92,12 @@ namespace MemoryExplorer
 
                     lOpt1.Visible = true;
                     tOpt1.Visible = true;
+                    tOpt1.TabStop = true;
+                    tOpt1.TabIndex = 2;
                     lOpt1.Text = "Minimum Length :";
+
+                    bStart.TabIndex = 3;
+                    bCancel.TabIndex = 4;
 
                     splitContainer1.Panel2Collapsed = false;
                     groupBox2.Height = 53;
@@ -101,22 +111,29 @@ namespace MemoryExplorer
 
                     lOpt1.Visible = true;
                     tOpt1.Visible = true;
+                    tOpt1.TabStop = true;
+                    tOpt1.TabIndex = 2;
                     lOpt1.Text = "Keywords :";
 
                     lOpt2.Visible = true;
                     tOpt2.Visible = true;
+                    tOpt2.TabStop = true;
+                    tOpt2.TabIndex = 3;
                     lOpt2.Text = "Keywords :";
+
+                    bStart.TabIndex = 4;
+                    bCancel.TabIndex = 5;
 
                     splitContainer1.Panel2Collapsed = false;
                     groupBox2.Height = 53 + 26;
                     this.Height = 266 + 26;
-
                     break;
                 default:
                     this.DialogResult = DialogResult.Abort;
                     return;
             }
-            
+
+            pMessage.Contents = "";
         }
 
 
@@ -135,7 +152,7 @@ namespace MemoryExplorer
 
             try
             {
-                pMessage.Address = uint.Parse(start, System.Globalization.NumberStyles.HexNumber);
+               returnStart = pMessage.Address = uint.Parse(start, System.Globalization.NumberStyles.HexNumber);
             }
             catch
             {
@@ -183,6 +200,7 @@ namespace MemoryExplorer
                     tSize.SelectAll();
                     return;
                 }
+                returnSize = pMessage.Length;
 
                 //////////////////////////////////////////////////////////       
                 ////////////////////       Optional       ////////////////
@@ -193,7 +211,7 @@ namespace MemoryExplorer
                     case IOCTL_FIND_PATTERN_UNICODE:
                         try
                         {
-                            mainForm.conditionLevel = Convert.ToUInt32(tOpt1.Text.Trim());
+                            returnLevel = Convert.ToUInt32(tOpt1.Text.Trim());
                         }
                         catch
                         {
@@ -202,7 +220,7 @@ namespace MemoryExplorer
                             tOpt1.SelectAll();
                             return;
                         }
-                        if ((mainForm.conditionLevel < 2) || (mainForm.conditionLevel > 10))
+                        if ((returnLevel < 2) || (returnLevel > 10))
                         {
                             MessageBox.Show("Input the \"Minimum Length\" in Decimal.\r\n[2 ~ 10]", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                             tOpt1.Focus();
@@ -211,7 +229,7 @@ namespace MemoryExplorer
                         }
 
                         // Most-significant 2 bytes of "Lenght" field is for "Level".
-                        pMessage.Length |= (mainForm.conditionLevel << 16);
+                        pMessage.Length |= (returnLevel << 16);
                         break;
                     case IOCTL_FIND_VALUE_STRING:
                     case IOCTL_FIND_VALUE_UNICODE:
@@ -225,9 +243,6 @@ namespace MemoryExplorer
                 // Send Message
                 if (SendControlMessageByPointer(mode, ref pMessage, 520) == 1)
                 {
-                    mainForm.conditionStart = pMessage.Address;
-                    mainForm.conditionSize = pMessage.Length;
-
                     this.DialogResult = DialogResult.OK;
                 }
                 else
@@ -238,13 +253,9 @@ namespace MemoryExplorer
             }
             else    // Address Translator
             {
-                mainForm.conditionStart = pMessage.Address;
                 this.DialogResult = DialogResult.OK;
             }
-
-            this.Dispose();
-            this.Close();
-            return;
+            
         }
 
 
@@ -254,14 +265,12 @@ namespace MemoryExplorer
             if (e.KeyChar == (char)13)   // "Enter"
             {
                 this.bStart_Click(this, null);
-                return;
             }
         }
 
         private void bCancel_Click(object sender, EventArgs e)
         {
             this.DialogResult = DialogResult.Cancel;
-            return;
         }
 
         private void tStart_KeyPress(object sender, KeyPressEventArgs e)
@@ -269,10 +278,10 @@ namespace MemoryExplorer
             if (e.KeyChar == (char)13)   // "Enter" 
             {
                 this.bStart_Click(this, null);
-                return;
             }
         }
 
     }
 
 }
+    

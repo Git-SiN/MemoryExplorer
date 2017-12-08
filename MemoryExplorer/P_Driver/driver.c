@@ -1485,7 +1485,6 @@ NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 	USHORT tmpLength = 0;
 	BOOLEAN isKernelMode = FALSE;
 	PMESSAGE_LIST pMessage = NULL;
-	
 
 	// Mode Check.
 	if (pBuffer[1] > 0x7FFFFFFF) {
@@ -1600,8 +1599,6 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	startAddress = pBuffer[1];
 	size = ((PUSHORT)pBuffer)[0];
 	level = ((PUSHORT)pBuffer)[1];
-
-	////////////// 여기까지만 체크  /////////////////////////////
 
 	// Mode Check.
 	if (startAddress > 0x7FFFFFFF) {

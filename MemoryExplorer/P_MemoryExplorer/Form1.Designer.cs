@@ -90,8 +90,6 @@
             this.bIndirect = new System.Windows.Forms.ToolStripMenuItem();
             this.tabPage6 = new System.Windows.Forms.TabPage();
             this.lFinder = new System.Windows.Forms.ListView();
-            this.columnHeader16 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
-            this.columnHeader17 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.toolStrip2 = new System.Windows.Forms.ToolStrip();
             this.tabPage7 = new System.Windows.Forms.TabPage();
             this.splitContainer2 = new System.Windows.Forms.SplitContainer();
@@ -182,7 +180,7 @@
             this.patternToolStripMenuItem1.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.bObjectUnicode});
             this.patternToolStripMenuItem1.Name = "patternToolStripMenuItem1";
-            this.patternToolStripMenuItem1.Size = new System.Drawing.Size(211, 32);
+            this.patternToolStripMenuItem1.Size = new System.Drawing.Size(188, 32);
             this.patternToolStripMenuItem1.Text = "Object";
             // 
             // bObjectUnicode
@@ -198,7 +196,7 @@
             this.bPatternAscii,
             this.bPatternUnicode});
             this.patternToolStripMenuItem.Name = "patternToolStripMenuItem";
-            this.patternToolStripMenuItem.Size = new System.Drawing.Size(211, 32);
+            this.patternToolStripMenuItem.Size = new System.Drawing.Size(188, 32);
             this.patternToolStripMenuItem.Text = "Pattern";
             // 
             // bPatternAscii
@@ -221,7 +219,7 @@
             this.bValueAscii,
             this.bValueUnicode});
             this.valueToolStripMenuItem.Name = "valueToolStripMenuItem";
-            this.valueToolStripMenuItem.Size = new System.Drawing.Size(211, 32);
+            this.valueToolStripMenuItem.Size = new System.Drawing.Size(188, 32);
             this.valueToolStripMenuItem.Text = "Value";
             // 
             // bValueAscii
@@ -676,9 +674,6 @@
             // 
             // lFinder
             // 
-            this.lFinder.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
-            this.columnHeader16,
-            this.columnHeader17});
             this.lFinder.Dock = System.Windows.Forms.DockStyle.Fill;
             this.lFinder.FullRowSelect = true;
             this.lFinder.GridLines = true;
@@ -690,16 +685,6 @@
             this.lFinder.TabIndex = 1;
             this.lFinder.UseCompatibleStateImageBehavior = false;
             this.lFinder.View = System.Windows.Forms.View.Details;
-            // 
-            // columnHeader16
-            // 
-            this.columnHeader16.Text = "Address";
-            this.columnHeader16.Width = 120;
-            // 
-            // columnHeader17
-            // 
-            this.columnHeader17.Text = "Values";
-            this.columnHeader17.Width = 500;
             // 
             // toolStrip2
             // 
@@ -893,8 +878,6 @@
         private System.Windows.Forms.ColumnHeader columnHeader21;
         private System.Windows.Forms.TabPage tabPage6;
         private System.Windows.Forms.ListView lFinder;
-        private System.Windows.Forms.ColumnHeader columnHeader16;
-        private System.Windows.Forms.ColumnHeader columnHeader17;
         private System.Windows.Forms.ToolStrip toolStrip2;
         private System.Windows.Forms.ToolStripLabel toolStripLabel1;
         private System.Windows.Forms.ToolStripTextBox tDump;
