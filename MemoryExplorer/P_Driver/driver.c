@@ -2243,10 +2243,10 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 	//case IOCTL_FIND_PATTERN_DOUBLELIST:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
 		if ((pBuffer != NULL) && ((irpStack->Parameters.DeviceIoControl.InputBufferLength) == 520)) {
-			if (((PULONG)pBuffer)[2] == 0)
-				ntStatus = PatternFinder(pBuffer, ctlCode);
-			else
+			if (((PULONG)pBuffer)[2] & 0xFF)
 				ntStatus = FinderWrapper(pBuffer, ctlCode);
+			else
+				ntStatus = PatternFinder(pBuffer, ctlCode);
 		}
 		pIrp->IoStatus.Information = 0;
 		break;
