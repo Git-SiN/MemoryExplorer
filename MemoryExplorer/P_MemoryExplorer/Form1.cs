@@ -117,6 +117,7 @@ namespace MemoryExplorer
     {
         public uint Length;
         public uint Address;
+        public uint Address2;
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]  
         public string Contents;
     }
@@ -528,34 +529,40 @@ namespace MemoryExplorer
         {
             if((buffer.Length > 0) && (buffer.Contents.Length > 0))
             {
-
+                Convert.ToString(new char[] { ' ' });   
                 string[] entry = new string[lFinder.Columns.Count];
-                // entry[0] = (lFinder.Items.Count + 1).ToString();
-                //for (int i = 0; i < lFinder.Columns.Count; i++)
-                //    entry[i] = "";
-
-                entry[0] = (lFinder.Columns.Count).ToString();
+                entry[0] = (lFinder.Items.Count + 1).ToString();
+                
                 switch (type)
                 {
                     case (uint)(MESSAGE_TYPE.Object_Unicode):
-                        entry[1] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
-                        entry[2] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
-                        entry[3] = String.Format("0x{0:X8}", buffer.Address);
-                        entry[4] = buffer.Contents;
-                        if ((entry[4].Length * 2) < (buffer.Length & 0xFFFF))
-                            entry[4] += "...";
+                        entry[1] = String.Format("0x{0:X8}", buffer.Address2);
+                        entry[2] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
+                        entry[3] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
+                        entry[4] = String.Format("0x{0:X8}", buffer.Address);
+                        entry[5] = buffer.Contents;
+                        if ((entry[5].Length * 2) < (buffer.Length & 0xFFFF))
+                            entry[5] += "...";
                         break;
                     case (uint)(MESSAGE_TYPE.Pattern_Unicode):
                     case (uint)(MESSAGE_TYPE.Pattern_String):
                         entry[1] = String.Format("0x{0:X8}", buffer.Address);
                         entry[2] = String.Format("0x{0:X4}", buffer.Length);
                         entry[3] = buffer.Contents;
+
+                        // Connected to the next page.
+                        if ((buffer.Address2 & 0xF0000000) == 0xF0000000)
+                            entry[2] += "[C]";
+
+                        // Over 255.
+                        if ((buffer.Address2 & 0x1) == 0x1)
+                            entry[3] += "...";
+
                         break;
                     default:
                         return;
                 }
                 AppendList(lFinder, entry);
-         //   lFinder.Items.Add(new ListViewItem(entry));
             }
         }
 
@@ -1150,6 +1157,7 @@ namespace MemoryExplorer
             lFinder.Columns.Clear();
 
             lFinder.Columns.Add("", 30);
+            lFinder.Columns.Add("Address", 100);
             lFinder.Columns.Add("Length", 80);
             lFinder.Columns.Add("MaxL", 80);
             lFinder.Columns.Add("Buffer", 100);

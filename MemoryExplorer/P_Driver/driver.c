@@ -1524,7 +1524,7 @@ NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 					&& (tmpBuffer != NULL)) {
 					if ((isKernelMode && ((ULONG)tmpBuffer > 0x7FFFFFFF)) || ((!isKernelMode) && ((ULONG)tmpBuffer <= 0x7FFFFFFF))) {
 						
-						// if the length is above 100, Trucate it...
+						// if the length is above 100, Trucate.
 						tmpBuffer = MemoryDumping((ULONG)tmpBuffer, (tmpLength > 200) ? 200 : tmpLength);
 						pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
 						if (pMessage == NULL) {
@@ -1545,7 +1545,8 @@ NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 							// Dump the contents of assumed UNICODE_STRING's Buffer.
 							//		-> if tmpBuffer is NULL, failed the dump.
 							if (tmpBuffer) {
-								RtlCopyMemory((pMessage->Message.Buffer) + 8, tmpBuffer, (tmpLength > 200) ? 200 : (ULONG)tmpLength);
+								RtlCopyMemory((pMessage->Message.Buffer) + 12, tmpBuffer, (tmpLength > 200) ? 200 : (ULONG)tmpLength);
+								*(PULONG)((pMessage->Message.Buffer) + 8) = (pBuffer[1] + i);
 								ExFreePool(tmpBuffer);
 							}
 
@@ -1593,6 +1594,8 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	PUCHAR pDump = NULL;
 	ULONG tmpLength = 0;
 	USHORT i = 0;
+	USHORT j = 0;
+	BOOLEAN isConnected = FALSE;
 	BOOLEAN isKernelMode = FALSE;
 	PMESSAGE_LIST pMessage = NULL;
 
@@ -1624,30 +1627,85 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	}
 	RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
 
+	if (ctlCode == IOCTL_FIND_PATTERN_UNICODE)
+		level *= 2;
+
 	for (i = 0; i < (size - level);) {
 		switch (ctlCode) {
 			// UNICODE : Only English & Korean
-			case IOCTL_FIND_PATTERN_UNICODE:	// buffer[0] : ULONG Length / buffer[1] : ULONG Address / bufer[2] : WCHAR Contents
-				while ( ((2 + i + (tmpLength * 2)) < size) && (UnicodeCheck(*(PUSHORT)(pDump + i + (tmpLength * 2))))) 
-					tmpLength++;
+			case IOCTL_FIND_PATTERN_UNICODE:	// buffer[0] : ULONG Length / buffer[1] : ULONG Address / buffer[2] : Flags / bufer[3] : WCHAR Contents											
+				while (UnicodeCheck(*(PUSHORT)(pDump + i + tmpLength))) {
+					if ((2 + i + tmpLength) > size) {
+						isConnected = TRUE;
+						break;
+					}
+					tmpLength += 2;
+				}
+
+				if (tmpLength == 0)
+					i++;
+				else {
+					if (tmpLength >= level) {		
+						// if the length is above 100, Trucate : Flag 0x01 
+						if (tmpLength > 510) {
+							*(PULONG)((pMessage->Message.Buffer) + 8) = 1;
+							RtlCopyMemory(((pMessage->Message.Buffer) + 12), (pDump + i), 510);
+						}
+						else
+							RtlCopyMemory(((pMessage->Message.Buffer) + 12), (pDump + i), tmpLength);
 				
+						*(PULONG)(pMessage->Message.Buffer) = (tmpLength / 2);
+						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
+						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_UNICODE;
+
+						// Connected to the next page : Flag 0x80000000 
+						if (isConnected)
+							*(PULONG)((pMessage->Message.Buffer) + 8) |= 0x80000000;
+					}
+					i += tmpLength;
+					tmpLength = 0;
+					isConnected = FALSE;
+				}
+				break;
+			case IOCTL_FIND_PATTERN_STRING:
+				while ((((pDump + i)[tmpLength]) >= 0x20) && (((pDump + i)[tmpLength]) <= 0x7E)) {
+					if ((i + tmpLength) >= size) {
+						isConnected = TRUE;
+						break;
+					}
+					tmpLength++;
+				}
+
 				if (tmpLength == 0)
 					i++;
 				else {
 					if (tmpLength >= level) {
-						RtlCopyMemory(((pMessage->Message.Buffer) + 8), (pDump + i), (tmpLength * 2));
 						*(PULONG)(pMessage->Message.Buffer) = tmpLength;
 						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
+						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_STRING;
 
-						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_UNICODE;
+						// if the length is above 255, Trucate : Flag 0x01 
+						if (tmpLength > 255) {
+							*(PULONG)((pMessage->Message.Buffer) + 8) = 1;
+							tmpLength = 255;
+						}
+
+						// Convert to the UNICODE.
+						while (tmpLength--)
+							(pMessage->Message.Buffer + 12)[tmpLength * 2] = (pDump + i)[tmpLength];
+
+						// Connected to the next page : Flag 0x80000000 
+						if (isConnected)
+							(*(PULONG)((pMessage->Message.Buffer) + 8)) |= 0x80000000;
+
+						i += (*(PULONG)(pMessage->Message.Buffer));
 					}
-					i += (tmpLength * 2);
-					tmpLength = 0;
-				}
-				break;
-			case IOCTL_FIND_PATTERN_STRING:
-				
+					else
+						i += tmpLength;
 
+					tmpLength = 0;
+					isConnected = FALSE;
+				}
 				break;
 			case	IOCTL_FIND_PATTERN_SINGLELIST: goto ERROR_OCCURED;	break;
 			case	IOCTL_FIND_PATTERN_DOUBLELIST: goto ERROR_OCCURED;	break;
