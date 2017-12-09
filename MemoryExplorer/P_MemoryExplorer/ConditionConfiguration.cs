@@ -48,6 +48,7 @@ namespace MemoryExplorer
         internal uint returnStart = 0;
         internal uint returnSize = 0;
         internal uint returnLevel = 0;
+        internal byte returnRange = 0;
 
         public ConditionConfiguration()
         {
@@ -61,6 +62,7 @@ namespace MemoryExplorer
             mainForm = f;
             mode = m;
             this.Text = n;
+            cRange.SelectedIndex = 0;
 
             switch (mode)
             {
@@ -74,15 +76,16 @@ namespace MemoryExplorer
                     groupBox1.Text = "Target Address";
                     lStart.Text = "Virtual Address :";
                     bStart.Text = "Translate";
+                    cRange.Enabled = false;
                     break;
-
                 case IOCTL_FIND_OBJECT_UNICODE:
                     lStart.Text = "Start Address :";
                     bStart.Text = "Search";
                     groupBox1.Text = "Target Range";
 
-                    this.Height = 180;
-                    splitContainer1.Panel2Collapsed = true;
+                    splitContainer1.Panel2Collapsed = false;
+                    groupBox2.Height = 53;
+                    this.Height = 266;
                     break;
                 case IOCTL_FIND_PATTERN_UNICODE:
                 case IOCTL_FIND_PATTERN_STRING:
@@ -96,12 +99,9 @@ namespace MemoryExplorer
                     tOpt1.TabIndex = 2;
                     lOpt1.Text = "Minimum Length :";
 
-                    bStart.TabIndex = 3;
-                    bCancel.TabIndex = 4;
-
                     splitContainer1.Panel2Collapsed = false;
-                    groupBox2.Height = 53;
-                    this.Height = 266;
+                    groupBox2.Height = 53 + 26;
+                    this.Height = 266 + 26;
                     break;
                 case IOCTL_FIND_VALUE_UNICODE:
                 case IOCTL_FIND_VALUE_STRING:
@@ -114,15 +114,6 @@ namespace MemoryExplorer
                     tOpt1.TabStop = true;
                     tOpt1.TabIndex = 2;
                     lOpt1.Text = "Keywords :";
-
-                    lOpt2.Visible = true;
-                    tOpt2.Visible = true;
-                    tOpt2.TabStop = true;
-                    tOpt2.TabIndex = 3;
-                    lOpt2.Text = "Keywords :";
-
-                    bStart.TabIndex = 4;
-                    bCancel.TabIndex = 5;
 
                     splitContainer1.Panel2Collapsed = false;
                     groupBox2.Height = 53 + 26;
@@ -139,69 +130,73 @@ namespace MemoryExplorer
 
         private void bStart_Click(object sender, EventArgs e)
         {
-            string start = this.tStart.Text.Trim();
-
-            // Check the value of Start.
-            if (start.Length <= 0)
+            if(cRange.SelectedIndex == 0)
             {
-                MessageBox.Show("Input the Start Address.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                tStart.Focus();
-                tStart.SelectAll();
-                return;
-            }
+                string start = this.tStart.Text.Trim();
 
-            try
-            {
-               returnStart = pMessage.Address = uint.Parse(start, System.Globalization.NumberStyles.HexNumber);
-            }
-            catch
-            {
-                MessageBox.Show("Input in HEX.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                tStart.Focus();
-                tStart.SelectAll();
-                return;
-            }
-
-            if (mode > 0)
-            {
-                string size = this.tSize.Text.Trim();
-
-                // Check the value of Size.
-                if (size.Length <= 0)
+                // Check the value of Start.
+                if (start.Length <= 0)
                 {
-                    MessageBox.Show("Input the Size of retrieving.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    tSize.Focus();
-                    tSize.SelectAll();
+                    MessageBox.Show("Input the Start Address.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    tStart.Focus();
+                    tStart.SelectAll();
                     return;
                 }
 
                 try
                 {
-                    pMessage.Length = uint.Parse(size, System.Globalization.NumberStyles.HexNumber);
+                    returnStart = pMessage.Address = uint.Parse(start, System.Globalization.NumberStyles.HexNumber);
                 }
                 catch
                 {
                     MessageBox.Show("Input in HEX.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    tSize.Focus();
-                    tSize.SelectAll();
+                    tStart.Focus();
+                    tStart.SelectAll();
                     return;
                 }
-                if (pMessage.Length <= 0)
-                {
-                    MessageBox.Show("The size must be above 0", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    tSize.Focus();
-                    tSize.SelectAll();
-                    return;
-                }
-                else if (pMessage.Length > 4096)
-                {
-                    MessageBox.Show("The size is allowed up to 0x400.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    tSize.Focus();
-                    tSize.SelectAll();
-                    return;
-                }
-                returnSize = pMessage.Length;
 
+                if (mode > 0)
+                {
+                    string size = this.tSize.Text.Trim();
+
+                    // Check the value of Size.
+                    if (size.Length <= 0)
+                    {
+                        MessageBox.Show("Input the Size of retrieving.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tSize.Focus();
+                        tSize.SelectAll();
+                        return;
+                    }
+
+                    try
+                    {
+                        pMessage.Length = uint.Parse(size, System.Globalization.NumberStyles.HexNumber);
+                    }
+                    catch
+                    {
+                        MessageBox.Show("Input in HEX.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tSize.Focus();
+                        tSize.SelectAll();
+                        return;
+                    }
+                    if (pMessage.Length <= 0)
+                    {
+                        MessageBox.Show("The size must be above 0", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tSize.Focus();
+                        tSize.SelectAll();
+                        return;
+                    }
+                    else if (pMessage.Length > 4096)
+                    {
+                        MessageBox.Show("The size is allowed up to 0x400.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tSize.Focus();
+                        tSize.SelectAll();
+                        return;
+                    }
+                    returnSize = pMessage.Length;
+                }
+                pMessage.Address2 = (uint)(cRange.SelectedIndex);
+                returnRange = (byte)(cRange.SelectedIndex);
                 //////////////////////////////////////////////////////////       
                 ////////////////////       Optional       ////////////////
                 //////////////////////////////////////////////////////////
@@ -228,8 +223,8 @@ namespace MemoryExplorer
                             return;
                         }
 
-                        // Most-significant 2 bytes of "Lenght" field is for "Level".
-                        pMessage.Length |= (returnLevel << 16);
+                        // Most-significant 2 bytes of "Address2" field is for "Level".
+                        pMessage.Address2 |= (returnLevel << 16);
                         break;
                     case IOCTL_FIND_VALUE_STRING:
                     case IOCTL_FIND_VALUE_UNICODE:
@@ -240,7 +235,7 @@ namespace MemoryExplorer
                 //////////////////////////////////////////////////////////
 
 
-                // Send Message
+                // Send Message 
                 if (SendControlMessageByPointer(mode, ref pMessage, 520) == 1)
                 {
                     this.DialogResult = DialogResult.OK;
@@ -281,6 +276,21 @@ namespace MemoryExplorer
             }
         }
 
+        private void cRange_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if(cRange.SelectedIndex == 0)
+            {
+                tStart.Enabled = true;
+                tSize.Enabled = true;
+                tStart.Focus();
+                tStart.SelectAll();
+            }
+            else
+            {
+                tStart.Enabled = false;
+                tSize.Enabled = false;
+            }
+        }
     }
 
 }

@@ -37,8 +37,8 @@
             this.lSize = new System.Windows.Forms.Label();
             this.lStart = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.tOpt5 = new System.Windows.Forms.TextBox();
-            this.lOpt5 = new System.Windows.Forms.Label();
+            this.cRange = new System.Windows.Forms.ComboBox();
+            this.lRange = new System.Windows.Forms.Label();
             this.tOpt4 = new System.Windows.Forms.TextBox();
             this.lOpt4 = new System.Windows.Forms.Label();
             this.tOpt3 = new System.Windows.Forms.TextBox();
@@ -88,7 +88,7 @@
             this.bCancel.Location = new System.Drawing.Point(316, 157);
             this.bCancel.Name = "bCancel";
             this.bCancel.Size = new System.Drawing.Size(150, 35);
-            this.bCancel.TabIndex = 21;
+            this.bCancel.TabIndex = 22;
             this.bCancel.Text = "Cancel";
             this.bCancel.UseVisualStyleBackColor = true;
             this.bCancel.Click += new System.EventHandler(this.bCancel_Click);
@@ -99,7 +99,7 @@
             this.bStart.Location = new System.Drawing.Point(147, 157);
             this.bStart.Name = "bStart";
             this.bStart.Size = new System.Drawing.Size(150, 35);
-            this.bStart.TabIndex = 20;
+            this.bStart.TabIndex = 21;
             this.bStart.Text = "Start";
             this.bStart.UseVisualStyleBackColor = true;
             this.bStart.Click += new System.EventHandler(this.bStart_Click);
@@ -163,8 +163,8 @@
             // 
             // groupBox2
             // 
-            this.groupBox2.Controls.Add(this.tOpt5);
-            this.groupBox2.Controls.Add(this.lOpt5);
+            this.groupBox2.Controls.Add(this.cRange);
+            this.groupBox2.Controls.Add(this.lRange);
             this.groupBox2.Controls.Add(this.tOpt4);
             this.groupBox2.Controls.Add(this.lOpt4);
             this.groupBox2.Controls.Add(this.tOpt3);
@@ -182,33 +182,36 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Optional";
             // 
-            // tOpt5
+            // cRange
             // 
-            this.tOpt5.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tOpt5.Location = new System.Drawing.Point(208, 198);
-            this.tOpt5.MaxLength = 256;
-            this.tOpt5.Name = "tOpt5";
-            this.tOpt5.Size = new System.Drawing.Size(233, 29);
-            this.tOpt5.TabIndex = 2;
-            this.tOpt5.TabStop = false;
-            this.tOpt5.Visible = false;
+            this.cRange.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.cRange.FormattingEnabled = true;
+            this.cRange.Items.AddRange(new object[] {
+            "Specified",
+            "WorkingSet - Whole",
+            "WorkingSet - UserMode",
+            "WorkingSet - KernelMode"});
+            this.cRange.Location = new System.Drawing.Point(208, 32);
+            this.cRange.Name = "cRange";
+            this.cRange.Size = new System.Drawing.Size(233, 30);
+            this.cRange.TabIndex = 10;
+            this.cRange.SelectedIndexChanged += new System.EventHandler(this.cRange_SelectedIndexChanged);
             // 
-            // lOpt5
+            // lRange
             // 
-            this.lOpt5.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.lOpt5.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.lOpt5.Location = new System.Drawing.Point(13, 201);
-            this.lOpt5.Name = "lOpt5";
-            this.lOpt5.Size = new System.Drawing.Size(190, 25);
-            this.lOpt5.TabIndex = 13;
-            this.lOpt5.Text = "Optional :";
-            this.lOpt5.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
-            this.lOpt5.Visible = false;
+            this.lRange.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lRange.ForeColor = System.Drawing.SystemColors.ControlText;
+            this.lRange.Location = new System.Drawing.Point(13, 34);
+            this.lRange.Name = "lRange";
+            this.lRange.Size = new System.Drawing.Size(190, 25);
+            this.lRange.TabIndex = 12;
+            this.lRange.Text = "Range :";
+            this.lRange.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             // 
             // tOpt4
             // 
             this.tOpt4.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tOpt4.Location = new System.Drawing.Point(208, 157);
+            this.tOpt4.Location = new System.Drawing.Point(208, 197);
             this.tOpt4.MaxLength = 256;
             this.tOpt4.Name = "tOpt4";
             this.tOpt4.Size = new System.Drawing.Size(233, 29);
@@ -220,7 +223,7 @@
             // 
             this.lOpt4.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lOpt4.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.lOpt4.Location = new System.Drawing.Point(13, 160);
+            this.lOpt4.Location = new System.Drawing.Point(13, 199);
             this.lOpt4.Name = "lOpt4";
             this.lOpt4.Size = new System.Drawing.Size(190, 25);
             this.lOpt4.TabIndex = 11;
@@ -231,7 +234,7 @@
             // tOpt3
             // 
             this.tOpt3.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tOpt3.Location = new System.Drawing.Point(208, 116);
+            this.tOpt3.Location = new System.Drawing.Point(208, 156);
             this.tOpt3.MaxLength = 256;
             this.tOpt3.Name = "tOpt3";
             this.tOpt3.Size = new System.Drawing.Size(233, 29);
@@ -243,7 +246,7 @@
             // 
             this.lOpt3.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lOpt3.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.lOpt3.Location = new System.Drawing.Point(13, 119);
+            this.lOpt3.Location = new System.Drawing.Point(13, 158);
             this.lOpt3.Name = "lOpt3";
             this.lOpt3.Size = new System.Drawing.Size(190, 25);
             this.lOpt3.TabIndex = 9;
@@ -254,7 +257,7 @@
             // tOpt2
             // 
             this.tOpt2.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tOpt2.Location = new System.Drawing.Point(208, 73);
+            this.tOpt2.Location = new System.Drawing.Point(208, 115);
             this.tOpt2.MaxLength = 256;
             this.tOpt2.Name = "tOpt2";
             this.tOpt2.Size = new System.Drawing.Size(233, 29);
@@ -266,7 +269,7 @@
             // 
             this.lOpt2.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lOpt2.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.lOpt2.Location = new System.Drawing.Point(13, 76);
+            this.lOpt2.Location = new System.Drawing.Point(13, 117);
             this.lOpt2.Name = "lOpt2";
             this.lOpt2.Size = new System.Drawing.Size(190, 25);
             this.lOpt2.TabIndex = 7;
@@ -277,7 +280,7 @@
             // tOpt1
             // 
             this.tOpt1.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.tOpt1.Location = new System.Drawing.Point(208, 33);
+            this.tOpt1.Location = new System.Drawing.Point(208, 74);
             this.tOpt1.MaxLength = 256;
             this.tOpt1.Name = "tOpt1";
             this.tOpt1.Size = new System.Drawing.Size(233, 29);
@@ -289,7 +292,7 @@
             // 
             this.lOpt1.Font = new System.Drawing.Font("Consolas", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lOpt1.ForeColor = System.Drawing.SystemColors.ControlText;
-            this.lOpt1.Location = new System.Drawing.Point(13, 36);
+            this.lOpt1.Location = new System.Drawing.Point(13, 76);
             this.lOpt1.Name = "lOpt1";
             this.lOpt1.Size = new System.Drawing.Size(190, 25);
             this.lOpt1.TabIndex = 5;
@@ -330,8 +333,6 @@
         private System.Windows.Forms.Label lSize;
         private System.Windows.Forms.Button bCancel;
         private System.Windows.Forms.GroupBox groupBox2;
-        private System.Windows.Forms.TextBox tOpt5;
-        private System.Windows.Forms.Label lOpt5;
         private System.Windows.Forms.TextBox tOpt4;
         private System.Windows.Forms.Label lOpt4;
         private System.Windows.Forms.TextBox tOpt3;
@@ -340,5 +341,7 @@
         private System.Windows.Forms.Label lOpt2;
         private System.Windows.Forms.TextBox tOpt1;
         private System.Windows.Forms.Label lOpt1;
+        private System.Windows.Forms.ComboBox cRange;
+        private System.Windows.Forms.Label lRange;
     }
 }
