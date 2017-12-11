@@ -130,7 +130,7 @@ namespace MemoryExplorer
 
         private void bStart_Click(object sender, EventArgs e)
         {
-            if(cRange.SelectedIndex == 0)
+            if (cRange.SelectedIndex == 0)
             {
                 string start = this.tStart.Text.Trim();
 
@@ -195,86 +195,80 @@ namespace MemoryExplorer
                     }
                     returnSize = pMessage.Length;
                 }
-                pMessage.Address2 = (uint)(cRange.SelectedIndex);
-                returnRange = (byte)(cRange.SelectedIndex);
-                //////////////////////////////////////////////////////////       
-                ////////////////////       Optional       ////////////////
-                //////////////////////////////////////////////////////////
-                switch (mode)
-                {
-                    case IOCTL_FIND_PATTERN_STRING:
-                    case IOCTL_FIND_PATTERN_UNICODE:
-                        try
-                        {
-                            returnLevel = Convert.ToUInt32(tOpt1.Text.Trim());
-                        }
-                        catch
-                        {
-                            MessageBox.Show("Input the \"Minimum Length\" in Decimal.\r\n[2 ~ 10]", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            tOpt1.Focus();
-                            tOpt1.SelectAll();
-                            return;
-                        }
-                        if ((returnLevel < 2) || (returnLevel > 10))
-                        {
-                            MessageBox.Show("Input the \"Minimum Length\" in Decimal.\r\n[2 ~ 10]", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            tOpt1.Focus();
-                            tOpt1.SelectAll();
-                            return;
-                        }
-
-                        // Most-significant 2 bytes of "Address2" field is for "Level".
-                        pMessage.Address2 |= (returnLevel << 16);
-                        break;
-                    case IOCTL_FIND_VALUE_STRING:
-                    case IOCTL_FIND_VALUE_UNICODE:
-                        break;
-                }
-                //////////////////////////////////////////////////////////
-                //////////////////////////////////////////////////////////
-                //////////////////////////////////////////////////////////
-
-
-                // Send Message 
-                if (SendControlMessageByPointer(mode, ref pMessage, 520) == 1)
+                else    // Address Translator
                 {
                     this.DialogResult = DialogResult.OK;
                 }
-                else
-                {
-                    this.DialogResult = DialogResult.Abort;
-                }
-
             }
-            else    // Address Translator
+            else
+            {
+                pMessage.Address2 = (uint)(cRange.SelectedIndex);
+                returnRange = (byte)(cRange.SelectedIndex);
+            }
+
+            //////////////////////////////////////////////////////////       
+            ////////////////////       Optional       ////////////////
+            //////////////////////////////////////////////////////////
+            switch (mode)
+            {
+                case IOCTL_FIND_PATTERN_STRING:
+                case IOCTL_FIND_PATTERN_UNICODE:
+                    try
+                    {
+                        returnLevel = Convert.ToUInt32(tOpt1.Text.Trim());
+                    }
+                    catch
+                    {
+                        MessageBox.Show("Input the \"Minimum Length\" in Decimal.\r\n[2 ~ 10]", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tOpt1.Focus();
+                        tOpt1.SelectAll();
+                        return;
+                    }
+                    if ((returnLevel < 2) || (returnLevel > 10))
+                    {
+                        MessageBox.Show("Input the \"Minimum Length\" in Decimal.\r\n[2 ~ 10]", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        tOpt1.Focus();
+                        tOpt1.SelectAll();
+                        return;
+                    }
+
+                    // Most-significant 2 bytes of "Address2" field is for "Level".
+                    pMessage.Address2 |= (returnLevel << 16);
+                    break;
+                case IOCTL_FIND_VALUE_STRING:
+                case IOCTL_FIND_VALUE_UNICODE:
+                    break;
+            }
+            //////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////
+
+
+            // Send Message 
+            if (SendControlMessageByPointer(mode, ref pMessage, 524) == 1)
             {
                 this.DialogResult = DialogResult.OK;
             }
-            
+            else
+            {
+                this.DialogResult = DialogResult.Abort;
+            }
+
         }
 
 
 
-        private void tSize_KeyPress(object sender, KeyPressEventArgs e)
+        private void t_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (e.KeyChar == (char)13)   // "Enter"
-            {
                 this.bStart_Click(this, null);
-            }
         }
 
         private void bCancel_Click(object sender, EventArgs e)
         {
             this.DialogResult = DialogResult.Cancel;
         }
-
-        private void tStart_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            if (e.KeyChar == (char)13)   // "Enter" 
-            {
-                this.bStart_Click(this, null);
-            }
-        }
+        
 
         private void cRange_SelectedIndexChanged(object sender, EventArgs e)
         {

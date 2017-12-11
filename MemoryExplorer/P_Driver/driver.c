@@ -401,7 +401,7 @@ ULONG DiffProcessWorkingSet(PULONG pCount) {
 			DbgPrintEx(101, 0, ":::: %s : %d INCREASED.\n", (pEprocess + EPROC_OFFSET_ImageFileName), diff);
 			
 			for (i = 0; i < diff; i++) {
-				DbgPrintEx(101, 0, "    %d. VPN : 05X\n", i + 1, ((*(pEntry + i)) >> 12));
+				DbgPrintEx(101, 0, "    %d. VPN : %05X\n", i + 1, ((*(pEntry + i)) >> 12));
 			}
 		}
 		else if (diff < (*pCount)) {
@@ -970,7 +970,7 @@ NTSTATUS HandleTableMaker(PDEVICE_EXTENSION pExtension) {
 	return STATUS_SUCCESS;
 }
 
-NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessage, PULONG forFinder) {
+NTSTATUS WorkingSetListMaker(PDEVICE_EXTENSION pExtension, PMESSAGE_LIST pMessage, PULONG *forFinder) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 	ULONG count = 0;
 	PMMWSL pMmWsl = NULL;
@@ -2022,25 +2022,25 @@ NTSTATUS FinderWrapper(PULONG pBuffer, ULONG ctlCode) {
 	PULONG workingSetList = NULL;
 	ULONG workingSetCount = 0;
 	ULONG i = 0;
-	PMMWSL pMmWsl = NULL;
+	PMESSAGE_LIST pMessage = NULL;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 	ULONG errorCount = 0;
 
-	pMmWsl = ExAllocatePool(NonPagedPool, sizeof(ULONG) * 18);
-	if (pMmWsl) {
-		RtlZeroMemory(pMmWsl, sizeof(ULONG) * 18);
-		ntStatus = WorkingSetListMaker(pMyDevice->DeviceExtension, (PMESSAGE_LIST)(((ULONG)pMmWsl) - 4), (PULONG)&workingSetList);
+	pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
+	if (pMessage) {
+		RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+		ntStatus = WorkingSetListMaker(pMyDevice->DeviceExtension, pMessage, &workingSetList);
 	}
 	if (!NT_SUCCESS(ntStatus)) {
 		DbgPrintEx(101, 0, "[ERROR] Failed to get the workingSetList...\n");
-		ExFreePool(pMmWsl);
+		ExFreePool(pMessage);
 		return ntStatus;
 	}
 	else {
 		DbgPrintEx(101, 0, "    [[[[    FINDER    ]]]]\n");
 		
-		workingSetCount = pMmWsl->LastInitializedWsle;
-		ExFreePool(pMmWsl);
+		workingSetCount = ((PMMWSL)(pMessage->Message.Buffer + 4))->LastInitializedWsle;
+		ExFreePool(pMessage);
 
 		pBuffer[0] = 4096;
 		for (i = 0; i <= workingSetCount; i++) {
@@ -2229,7 +2229,7 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 		break;
 	case IOCTL_FIND_OBJECT_UNICODE:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 520)) {
+		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 524)) {
 			if (((PULONG)pBuffer)[2] == 0)
 				ntStatus = ObjectFinder(pBuffer, ctlCode);
 			else
@@ -2242,8 +2242,8 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 	//case IOCTL_FIND_PATTERN_SINGLELIST:
 	//case IOCTL_FIND_PATTERN_DOUBLELIST:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && ((irpStack->Parameters.DeviceIoControl.InputBufferLength) == 520)) {
-			if (((PULONG)pBuffer)[2] & 0xFF)
+		if ((pBuffer != NULL) && ((irpStack->Parameters.DeviceIoControl.InputBufferLength) == 524)) {
+			if ((((PULONG)pBuffer)[2]) & 0xFF)
 				ntStatus = FinderWrapper(pBuffer, ctlCode);
 			else
 				ntStatus = PatternFinder(pBuffer, ctlCode);

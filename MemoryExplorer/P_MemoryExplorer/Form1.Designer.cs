@@ -685,6 +685,8 @@
             this.lFinder.TabIndex = 1;
             this.lFinder.UseCompatibleStateImageBehavior = false;
             this.lFinder.View = System.Windows.Forms.View.Details;
+            this.lFinder.VirtualMode = true;
+            this.lFinder.RetrieveVirtualItem += new System.Windows.Forms.RetrieveVirtualItemEventHandler(this.lFinder_RetrieveVirtualItem);
             // 
             // toolStrip2
             // 

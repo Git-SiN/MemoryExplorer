@@ -127,7 +127,7 @@
             this.tSize.Name = "tSize";
             this.tSize.Size = new System.Drawing.Size(233, 29);
             this.tSize.TabIndex = 1;
-            this.tSize.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tSize_KeyPress);
+            this.tSize.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.t_KeyPress);
             // 
             // tStart
             // 
@@ -137,7 +137,7 @@
             this.tStart.Name = "tStart";
             this.tStart.Size = new System.Drawing.Size(233, 29);
             this.tStart.TabIndex = 0;
-            this.tStart.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.tStart_KeyPress);
+            this.tStart.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.t_KeyPress);
             // 
             // lSize
             // 
@@ -218,6 +218,7 @@
             this.tOpt4.TabIndex = 2;
             this.tOpt4.TabStop = false;
             this.tOpt4.Visible = false;
+            this.tOpt4.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.t_KeyPress);
             // 
             // lOpt4
             // 
@@ -241,6 +242,7 @@
             this.tOpt3.TabIndex = 2;
             this.tOpt3.TabStop = false;
             this.tOpt3.Visible = false;
+            this.tOpt3.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.t_KeyPress);
             // 
             // lOpt3
             // 
@@ -264,6 +266,7 @@
             this.tOpt2.TabIndex = 2;
             this.tOpt2.TabStop = false;
             this.tOpt2.Visible = false;
+            this.tOpt2.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.t_KeyPress);
             // 
             // lOpt2
             // 
@@ -287,6 +290,7 @@
             this.tOpt1.TabIndex = 2;
             this.tOpt1.TabStop = false;
             this.tOpt1.Visible = false;
+            this.tOpt1.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.t_KeyPress);
             // 
             // lOpt1
             // 

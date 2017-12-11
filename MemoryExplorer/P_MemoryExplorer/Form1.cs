@@ -294,6 +294,7 @@ namespace MemoryExplorer
         internal uint dumpLength = 0;
 
         private List<uint[]> workingSetList = new List<uint[]>();
+        private List<ListViewItem> foundList = new List<ListViewItem>();
         private uint workingSetListCount = 0;
         
        // internal bool memoryManipulated = false;
@@ -529,9 +530,8 @@ namespace MemoryExplorer
         {
             if((buffer.Length > 0) && (buffer.Contents.Length > 0))
             {
-                Convert.ToString(new char[] { ' ' });   
                 string[] entry = new string[lFinder.Columns.Count];
-                entry[0] = (lFinder.Items.Count + 1).ToString();
+                entry[0] = (foundList.Count + 1).ToString();
                 
                 switch (type)
                 {
@@ -562,7 +562,10 @@ namespace MemoryExplorer
                     default:
                         return;
                 }
-                AppendList(lFinder, entry);
+                //AppendList(lFinder, entry);
+
+                foundList.Add(new ListViewItem(entry));
+               // lFinder.VirtualListSize++;
             }
         }
 
@@ -663,6 +666,7 @@ namespace MemoryExplorer
                     lWorkingSetList.Items.Clear();
                     workingSetList.Clear();
                     workingSetListCount = 0;
+                    lWorkingSetList.VirtualListSize = 0;
 
 
                     string[] entry = new string[lWorkingSetSummary.Columns.Count];
@@ -871,7 +875,8 @@ namespace MemoryExplorer
                 }
             }
             else
-            {       // Unselect with Colors.LightCoral
+            {       
+                // Unselect with Colors.LightCoral
                 // Select whether restore corruption or not.
                 if (isManipulated)
                 {
@@ -881,6 +886,23 @@ namespace MemoryExplorer
 
                     isManipulated = false;
                 }
+
+                lFinder.VirtualListSize = 0;
+                foundList.Clear();
+                lFinder.Items.Clear();
+                lFinder.Columns.Clear();
+
+                lWorkingSetSummary.Items.Clear();
+ 
+                lWorkingSetList.VirtualListSize = 0;
+                lWorkingSetList.Items.Clear();
+                workingSetListCount = 0;
+                workingSetList.Clear();
+
+                // First, Keep it.
+                //lDump.VirtualListSize = 0;
+                //lDump.Items.Clear();
+
                 if (SendControlMessage(IOCTL_UNSELECT_TARGET, targetPID) == 0)
                 {
                     MessageBox.Show("TARGET_OBJECT in Driver is not exist.", "Warning", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -1072,22 +1094,24 @@ namespace MemoryExplorer
             }
 
             ////////////////////////     Failed...
-            lDump.Items.Clear();
             lDump.VirtualListSize = 0;
-            
+            lDump.Items.Clear();
             return;
         }
 
         private void lDump_RetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
         {
-            try
+            if(lDump.VirtualListSize > 0)
             {
-                e.Item = MakeVirtualItemForDump(e.ItemIndex);
-            }
-            catch
-            {
-                lDump.Items.Clear();
-                lDump.VirtualListSize = 0;    
+                try
+                {
+                    e.Item = MakeVirtualItemForDump(e.ItemIndex);
+                }
+                catch
+                {
+                    lDump.VirtualListSize = 0;
+                    lDump.Items.Clear();
+                }
             }
         }
 
@@ -1152,7 +1176,9 @@ namespace MemoryExplorer
                 MessageBox.Show("First, Select a Target Process.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
-
+            
+            lFinder.VirtualListSize = 0;
+            foundList.Clear();
             lFinder.Items.Clear();
             lFinder.Columns.Clear();
 
@@ -1261,15 +1287,20 @@ namespace MemoryExplorer
 
         private void lWorkingSetList_RetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
         {
-            try
+            if(lWorkingSetList.VirtualListSize > 0)
             {
-                e.Item = MakeVirtualItemForWorkingSet(e.ItemIndex);
-            }
-            catch
-            {
-                lWorkingSetList.Items.Clear();
-                lWorkingSetList.VirtualListSize = 0;
+                try
+                {
+                    e.Item = MakeVirtualItemForWorkingSet(e.ItemIndex);
+                }
+                catch
+                {
 
+                    lWorkingSetList.VirtualListSize = 0;
+                    workingSetListCount = 0;
+                    workingSetList.Clear();
+                    lWorkingSetList.Items.Clear();
+                }
             }
         }
 
@@ -1355,6 +1386,8 @@ namespace MemoryExplorer
                     return;
             }
 
+            lFinder.VirtualListSize = 0;
+            foundList.Clear();
             lFinder.Items.Clear();
             lFinder.Columns.Clear();
 
@@ -1372,6 +1405,7 @@ namespace MemoryExplorer
                 conditionSize = configForm.returnSize;
                 conditionLevel = configForm.returnLevel;
 
+                lFinder.VirtualListSize = foundList.Count;
                 tabControl1.SelectedIndex = 6;
             }
             else if (result == DialogResult.Cancel)
@@ -1405,6 +1439,9 @@ namespace MemoryExplorer
                 default:
                     return;
             }
+
+            lFinder.VirtualListSize = 0;
+            foundList.Clear();
             lFinder.Items.Clear();
             lFinder.Columns.Clear();
 
@@ -1412,6 +1449,7 @@ namespace MemoryExplorer
             lFinder.Columns.Add("Address", 100);
             lFinder.Columns.Add("Length", 80);
             lFinder.Columns.Add("Contents", 400);
+            
 
             ConditionConfiguration configForm = new ConditionConfiguration(this, type, "Finder");
             DialogResult result = configForm.ShowDialog();
@@ -1434,9 +1472,33 @@ namespace MemoryExplorer
             }
         }
 
+        private ListViewItem MakeVirtualItemForFinder(int index)
+        {
+            //string[] entry = new string[4];
+            //entry[0] = foundList.Count.ToString();
+            //entry[1] = lFinder.VirtualListSize.ToString();
+            //entry[2] = index.ToString();
+            //entry[3] = lFinder.Items.Count.ToString();
+            //return new ListViewItem(entry);
+            return (foundList[index]);
+        }
 
-
-
+        private void lFinder_RetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
+        {
+            try
+            {
+                e.Item = MakeVirtualItemForFinder(e.ItemIndex);
+            }
+            catch(Exception eerr)
+            {
+                MessageBox.Show(eerr.ToString(), e.ItemIndex.ToString(), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                lFinder.VirtualListSize = 0;
+                foundList.Clear();
+                lFinder.Items.Clear();
+            }
+           
+        }
+        
 
         // END
     }
