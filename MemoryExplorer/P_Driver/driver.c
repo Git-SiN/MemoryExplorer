@@ -25,6 +25,7 @@ PDEVICE_OBJECT pMyDevice = NULL;
 #define MESSAGE_TYPE_WORKINGSET_LIST		(ULONG)8
 #define MESSAGE_TYPE_PATTERN_UNICODE		(ULONG)9
 #define MESSAGE_TYPE_PATTERN_STRING			(ULONG)10
+#define MESSAGE_TYPE_END_OF_FINDER			(ULONG)11
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define VA_FOR_PAGE_DIRECTORY_TABLE			(ULONG)0xC0600000		// x86 PAE [x86 : 0xC0300000]
@@ -1439,7 +1440,7 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 	PUCHAR memoryDump = NULL;
 	PVOID mappedAddress = NULL;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
-	ULONG tmp = 0;
+
 
 	DbgPrintEx(101, 0, "::: Dumping the Address : 0x%08X [%X]\n", StartAddress, Length);
 	
@@ -1450,8 +1451,7 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 	}	
 	else {
 		RtlZeroMemory(memoryDump, Length);
-		DiffProcessWorkingSet(&tmp);
-
+		
 		mappedAddress = LockAndMapMemory(StartAddress, Length, IoReadAccess);
 		if (mappedAddress != NULL){
 			__try {
@@ -1464,8 +1464,6 @@ PUCHAR MemoryDumping(ULONG StartAddress, ULONG Length) {
 			
 			UnMapAndUnLockMemory(mappedAddress);
 		}
-		DiffProcessWorkingSet(&tmp);
-
 		if (!NT_SUCCESS(ntStatus)) {
 			DbgPrintEx(101, 0, "[ERROR] Failed to copy.\n");
 
@@ -1548,7 +1546,7 @@ NTSTATUS ObjectFinder(PULONG pBuffer, ULONG ctlCode) {
 							// Dump the contents of assumed UNICODE_STRING's Buffer.
 							//		-> if tmpBuffer is NULL, failed the dump.
 							if (tmpBuffer) {
-								RtlCopyMemory((pMessage->Message.Buffer) + 12, tmpBuffer, (tmpLength > 200) ? 200 : (ULONG)tmpLength);
+								RtlCopyMemory((pMessage->Message.Buffer) + 12, tmpBuffer, (tmpLength > 200) ? 200 : tmpLength);
 								*(PULONG)((pMessage->Message.Buffer) + 8) = (pBuffer[1] + i);
 								ExFreePool(tmpBuffer);
 							}
@@ -1650,9 +1648,9 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 				else {
 					if (tmpLength >= level) {		
 						// if the length is above 100, Trucate : Flag 0x01 
-						if (tmpLength > 510) {
+						if (tmpLength > 200) {
 							*(PULONG)((pMessage->Message.Buffer) + 8) = 1;
-							RtlCopyMemory(((pMessage->Message.Buffer) + 12), (pDump + i), 510);
+							RtlCopyMemory(((pMessage->Message.Buffer) + 12), (pDump + i), 200);
 						}
 						else
 							RtlCopyMemory(((pMessage->Message.Buffer) + 12), (pDump + i), tmpLength);
@@ -1687,10 +1685,10 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
 						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_STRING;
 
-						// if the length is above 255, Trucate : Flag 0x01 
-						if (tmpLength > 255) {
+						// if the length is above 100, Trucate : Flag 0x01 
+						if (tmpLength > 100) {
 							*(PULONG)((pMessage->Message.Buffer) + 8) = 1;
-							tmpLength = 255;
+							tmpLength = 100;
 						}
 
 						// Convert to the UNICODE.
@@ -1710,8 +1708,14 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 					isConnected = FALSE;
 				}
 				break;
-			case	IOCTL_FIND_PATTERN_SINGLELIST: goto ERROR_OCCURED;	break;
-			case	IOCTL_FIND_PATTERN_DOUBLELIST: goto ERROR_OCCURED;	break;
+			case	IOCTL_FIND_PATTERN_SINGLELIST: 
+				ExFreePool(pMessage);
+				goto ERROR_OCCURED;	
+			case	IOCTL_FIND_PATTERN_DOUBLELIST: 
+				ExFreePool(pMessage);
+				goto ERROR_OCCURED;	
+			default : 
+				ExFreePool(pMessage);
 		}
 
 		// If found, the Message Queuing...
@@ -2025,22 +2029,29 @@ NTSTATUS FinderWrapper(PULONG pBuffer, ULONG ctlCode) {
 	PMESSAGE_LIST pMessage = NULL;
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
 	ULONG errorCount = 0;
+	ULONG diff = 0;
+
 
 	pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
-	if (pMessage) {
-		RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
-		ntStatus = WorkingSetListMaker(pMyDevice->DeviceExtension, pMessage, &workingSetList);
-	}
-	if (!NT_SUCCESS(ntStatus)) {
-		DbgPrintEx(101, 0, "[ERROR] Failed to get the workingSetList...\n");
-		ExFreePool(pMessage);
+	if (pMessage == NULL) {
+		DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool in FinderWrapper().\n");
 		return ntStatus;
 	}
-	else {
-		DbgPrintEx(101, 0, "    [[[[    FINDER    ]]]]\n");
+	RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+	
+
+	DbgPrintEx(101, 0, "    [[[[    FINDER    ]]]]\n");
+	DiffProcessWorkingSet(&diff);
+
+	if (range) {
+		ntStatus = WorkingSetListMaker(pMyDevice->DeviceExtension, pMessage, &workingSetList);
+		if (!NT_SUCCESS(ntStatus)) {
+			DbgPrintEx(101, 0, "[ERROR] Failed to get the workingSetList...\n");
+			ExFreePool(pMessage);
+			return ntStatus;
+		}
 		
 		workingSetCount = ((PMMWSL)(pMessage->Message.Buffer + 4))->LastInitializedWsle;
-		ExFreePool(pMessage);
 
 		pBuffer[0] = 4096;
 		for (i = 0; i <= workingSetCount; i++) {
@@ -2048,15 +2059,15 @@ NTSTATUS FinderWrapper(PULONG pBuffer, ULONG ctlCode) {
 			if (pBuffer[1] & 0x1) {
 				pBuffer[1] &= (0xFFFFF000);
 				/*
-					Specified
-					WorkingSet - Whole
-					WorkingSet - UserMode
-					WorkingSet - KernelMode
+				Specified
+				WorkingSet - Whole
+				WorkingSet - UserMode
+				WorkingSet - KernelMode
 				*/
 				if (((range == 2) && (pBuffer[1] >= 0x80000000)) || ((range == 3) && (pBuffer[1] < 0x80000000)))
 					continue;
 
-				// If Failed, just counting & proceed.
+				// If failed, just counting & proceed.
 				switch (ctlCode) {
 				case IOCTL_FIND_OBJECT_UNICODE:
 					ntStatus = ObjectFinder(pBuffer, ctlCode);
@@ -2066,18 +2077,49 @@ NTSTATUS FinderWrapper(PULONG pBuffer, ULONG ctlCode) {
 					ntStatus = PatternFinder(pBuffer, ctlCode);
 					break;
 				}
+
 				if (!NT_SUCCESS(ntStatus)) {
 					DbgPrintEx(101, 0, "    %3d. 0x%05X\n", ++errorCount, (ULONG)(pBuffer[1] >> 12));
 				}
-					
 			}
 		}
 
 		ExFreePool(workingSetList);
-		DbgPrintEx(101, 0, "    [[[[ Error Count : %d ]]]]\n", errorCount);
-		return STATUS_SUCCESS;
+	}
+	else {
+		switch (ctlCode) {
+		case IOCTL_FIND_OBJECT_UNICODE:
+			ntStatus = ObjectFinder(pBuffer, ctlCode);
+			break;
+		case IOCTL_FIND_PATTERN_UNICODE:
+		case IOCTL_FIND_PATTERN_STRING:
+			ntStatus = PatternFinder(pBuffer, ctlCode);
+			break;
+		}
+		if (!NT_SUCCESS(ntStatus))
+			errorCount++;
 	}
 
+	DbgPrintEx(101, 0, "    [[[[ Error Count : %d ]]]]\n", errorCount);
+	DiffProcessWorkingSet(&diff);
+
+	// Send the Message of EOF.
+	//	    -> If it succeed, Return the STATUS_SUCCESS.
+	//		-> The result of this searching is stored at the EOF Message's Address2 field.
+	if(pMessage){
+		pMessage->Message.MessageType = MESSAGE_TYPE_END_OF_FINDER;
+		*(PULONG)((pMessage->Message.Buffer) + 8) = errorCount;
+		*(PULONG)(pMessage->Message.Buffer) = ctlCode;
+		if (!QueuingMessage(&(pMessage->ListEntry))) {
+			DbgPrintEx(101, 0, "[ERROR] Failed to queue EOF Message at the FinderWrapper()\n");
+			ExFreePool(pMessage);
+			ntStatus = STATUS_UNSUCCESSFUL;
+		}
+		else
+			ntStatus = STATUS_SUCCESS;
+	
+	}
+	return ntStatus;
 }
 
 NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
@@ -2228,25 +2270,13 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 		}
 		break;
 	case IOCTL_FIND_OBJECT_UNICODE:
-		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && (irpStack->Parameters.DeviceIoControl.InputBufferLength == 524)) {
-			if (((PULONG)pBuffer)[2] == 0)
-				ntStatus = ObjectFinder(pBuffer, ctlCode);
-			else
-				ntStatus = FinderWrapper(pBuffer, ctlCode);
-		}
-		pIrp->IoStatus.Information = 0;
-		break;
 	case IOCTL_FIND_PATTERN_UNICODE:
 	case IOCTL_FIND_PATTERN_STRING:
 	//case IOCTL_FIND_PATTERN_SINGLELIST:
 	//case IOCTL_FIND_PATTERN_DOUBLELIST:
 		pBuffer = pIrp->AssociatedIrp.SystemBuffer;
-		if ((pBuffer != NULL) && ((irpStack->Parameters.DeviceIoControl.InputBufferLength) == 524)) {
-			if ((((PULONG)pBuffer)[2]) & 0xFF)
-				ntStatus = FinderWrapper(pBuffer, ctlCode);
-			else
-				ntStatus = PatternFinder(pBuffer, ctlCode);
+		if ((pBuffer != NULL) && ((irpStack->Parameters.DeviceIoControl.InputBufferLength) == 212)) {
+			ntStatus = FinderWrapper(pBuffer, ctlCode);
 		}
 		pIrp->IoStatus.Information = 0;
 		break;

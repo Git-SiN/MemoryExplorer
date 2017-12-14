@@ -118,7 +118,7 @@ namespace MemoryExplorer
         public uint Length;
         public uint Address;
         public uint Address2;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]  
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 100)]  
         public string Contents;
     }
 
@@ -157,7 +157,8 @@ namespace MemoryExplorer
         WorkingSetSummary,
         WorkingSetList,
         Pattern_Unicode,
-        Pattern_String
+        Pattern_String,
+        End_Of_Finder			
     }
 
     public partial class fMain : Form
@@ -528,45 +529,59 @@ namespace MemoryExplorer
 
         private void FinderListing(uint type, FINDER_ENTRY buffer)
         {
-            if((buffer.Length > 0) && (buffer.Contents.Length > 0))
-            {
-                string[] entry = new string[lFinder.Columns.Count];
-                entry[0] = (foundList.Count + 1).ToString();
-                
-                switch (type)
+            if (type == (uint)(MESSAGE_TYPE.End_Of_Finder)){
+                // Address2 : The Number of the failed page. 
+                //    -> 0 : No Failed.
+                if (buffer.Address2 > 0)
                 {
-                    case (uint)(MESSAGE_TYPE.Object_Unicode):
-                        entry[1] = String.Format("0x{0:X8}", buffer.Address2);
-                        entry[2] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
-                        entry[3] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
-                        entry[4] = String.Format("0x{0:X8}", buffer.Address);
-                        entry[5] = buffer.Contents;
-                        if ((entry[5].Length * 2) < (buffer.Length & 0xFFFF))
-                            entry[5] += "...";
-                        break;
-                    case (uint)(MESSAGE_TYPE.Pattern_Unicode):
-                    case (uint)(MESSAGE_TYPE.Pattern_String):
-                        entry[1] = String.Format("0x{0:X8}", buffer.Address);
-                        entry[2] = String.Format("0x{0:X4}", buffer.Length);
-                        entry[3] = buffer.Contents;
-
-                        // Connected to the next page.
-                        if ((buffer.Address2 & 0xF0000000) == 0xF0000000)
-                            entry[2] += "[C]";
-
-                        // Over 255.
-                        if ((buffer.Address2 & 0x1) == 0x1)
-                            entry[3] += "...";
-
-                        break;
-                    default:
-                        return;
+                    //First, Keep the received Items.
+                    MessageBox.Show("Failed to search the whole target range.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
-                //AppendList(lFinder, entry);
-
-                foundList.Add(new ListViewItem(entry));
-               // lFinder.VirtualListSize++;
+                lFinder.VirtualListSize = foundList.Count;
+            //    lFinder.Refresh();
+                return;
             }
+            else
+            {
+                if ((buffer.Length > 0) && (buffer.Contents.Length > 0))
+                {
+                    string[] entry = new string[lFinder.Columns.Count];
+                    entry[0] = (foundList.Count + 1).ToString();
+
+                    switch (type)
+                    {
+                        case (uint)(MESSAGE_TYPE.Object_Unicode):
+                            entry[1] = String.Format("0x{0:X8}", buffer.Address2);
+                            entry[2] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
+                            entry[3] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
+                            entry[4] = String.Format("0x{0:X8}", buffer.Address);
+                            entry[5] = buffer.Contents;
+                            if ((entry[5].Length * 2) < (buffer.Length & 0xFFFF))
+                                entry[5] += "...";
+                            break;
+                        case (uint)(MESSAGE_TYPE.Pattern_Unicode):
+                        case (uint)(MESSAGE_TYPE.Pattern_String):
+                            entry[1] = String.Format("0x{0:X8}", buffer.Address);
+                            entry[2] = String.Format("0x{0:X4}", buffer.Length);
+                            entry[3] = buffer.Contents;
+
+                            // Connected to the next page.
+                            if ((buffer.Address2 & 0xF0000000) == 0xF0000000)
+                                entry[2] += "[C]";
+
+                            // Over 255.
+                            if ((buffer.Address2 & 0x1) == 0x1)
+                                entry[3] += "...";
+
+                            break;
+                        default:
+                            return;
+                    }
+                    //AppendList(lFinder, entry);
+
+                    foundList.Add(new ListViewItem(entry));
+                }
+            }            
         }
 
         private ListViewItem MakeVirtualItemForWorkingSet(int i)
@@ -711,6 +726,7 @@ namespace MemoryExplorer
                             case (uint)(MESSAGE_TYPE.Object_Unicode):
                             case (uint)(MESSAGE_TYPE.Pattern_Unicode):
                             case (uint)(MESSAGE_TYPE.Pattern_String):
+                            case (uint)(MESSAGE_TYPE.End_Of_Finder):
                                 FinderListing(buffer.MessageType, (FINDER_ENTRY)(ByteToStructure(buffer.Buffer, typeof(FINDER_ENTRY))));
                                 break;
                             case (uint)(MESSAGE_TYPE.WorkingSetSummary):
@@ -1404,8 +1420,7 @@ namespace MemoryExplorer
                 conditionStart = configForm.returnStart;
                 conditionSize = configForm.returnSize;
                 conditionLevel = configForm.returnLevel;
-
-                lFinder.VirtualListSize = foundList.Count;
+                
                 tabControl1.SelectedIndex = 6;
             }
             else if (result == DialogResult.Cancel)
@@ -1485,16 +1500,19 @@ namespace MemoryExplorer
 
         private void lFinder_RetrieveVirtualItem(object sender, RetrieveVirtualItemEventArgs e)
         {
-            try
+            if (lFinder.VirtualListSize > 0)
             {
-                e.Item = MakeVirtualItemForFinder(e.ItemIndex);
-            }
-            catch(Exception eerr)
-            {
-                MessageBox.Show(eerr.ToString(), e.ItemIndex.ToString(), MessageBoxButtons.OK, MessageBoxIcon.Error);
-                lFinder.VirtualListSize = 0;
-                foundList.Clear();
-                lFinder.Items.Clear();
+                try
+                {
+                    e.Item = MakeVirtualItemForFinder(e.ItemIndex);
+                }
+                catch (Exception eerr)
+                {
+                    MessageBox.Show(eerr.ToString(), e.ItemIndex.ToString(), MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    lFinder.VirtualListSize = 0;
+                    foundList.Clear();
+                    lFinder.Items.Clear();
+                }
             }
            
         }

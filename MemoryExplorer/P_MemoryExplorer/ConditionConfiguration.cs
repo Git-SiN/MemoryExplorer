@@ -245,7 +245,7 @@ namespace MemoryExplorer
 
 
             // Send Message 
-            if (SendControlMessageByPointer(mode, ref pMessage, 524) == 1)
+            if (SendControlMessageByPointer(mode, ref pMessage, 212) == 1)
             {
                 this.DialogResult = DialogResult.OK;
             }
