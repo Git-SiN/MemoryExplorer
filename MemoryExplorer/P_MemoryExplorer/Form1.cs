@@ -560,7 +560,7 @@ namespace MemoryExplorer
                             entry[2] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
                             entry[3] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
                             entry[4] = String.Format("0x{0:X8}", buffer.Address);
-                            entry[5] = /*buffer.Contents*/"";
+                            entry[5] = buffer.Contents;
                             if ((entry[5].Length * 2) < (buffer.Length & 0xFFFF))
                                 entry[5] += "[+]";
                             break;
@@ -568,7 +568,7 @@ namespace MemoryExplorer
                         case (uint)(MESSAGE_TYPE.Pattern_String):
                             entry[1] = String.Format("0x{0:X8}", buffer.Address);
                             entry[2] = String.Format("0x{0:X4}", buffer.Length);
-                            entry[3] = /*buffer.Contents*/"";
+                            entry[3] = buffer.Contents;
 
                             // Connected to the next page.
                             if ((buffer.Address2 & 0x80000000) == 0x80000000)

@@ -76,8 +76,6 @@ typedef struct _MESSAGE_LIST {
 }MESSAGE_LIST, *PMESSAGE_LIST;
 #pragma pack()
 
-//ULONG pOriginalSysenter = 0;
-
 PVOID NTAPI ObGetObjectType(PVOID pObject);
 
 BOOLEAN QueuingMessage(PMESSAGE_LIST pMessage) {
@@ -103,115 +101,6 @@ BOOLEAN QueuingMessage(PMESSAGE_LIST pMessage) {
 	return TRUE;
 }
 
-
-VOID CheckingRegisters() {
-	ULONG currentEsp = 0;
-	ULONG currentEbp = 0;
-	//ULONG currentEip = 0;
-
-	//	UCHAR aroundEbp[40] = { 0, };
-
-	
-	__asm {
-		mov currentEsp, esp;
-		mov currentEbp, ebp;
-		//mov currentEip, eip;
-	}
-	//	push eax;
-	//	push ebx;
-	//	push ecx;
-
-	//	// Initialize.
-	//	mov eax, ebp;
-	//	sub eax, 0xC;
-
-	//	lea ebx, dword ptr [aroundEbp];
-	//	xor ecx, ecx;
-
-	//	// Copy.
-	//COPY_LOOP:
-	//	add ebx, ecx;
-	//	add eax, ecx;
-
-	//	mov [ebx], [eax];
-	//	add ecx, 4;
-	//	cmp ecx, 0x32;
-
-
-
-	//	pop ecx;
-	//	pop ebx;
-	//	pop eax;
-	//}
-
-	//DbgPrintEx(101, 0, "[[[[[[[[ ESP : 0x%08X EBP : 0x%08X EIP : 0x%08X ]]]]]]]]\n", currentEsp, currentEbp, currentEip);
-	//DbgPrintEx(101, 0, "[[[[[[[[ Original SysEnter : 0x%08X ]]]]]]]]\n", pOriginalSysenter);
-}
-
-//
-//__declspec(naked) HookedSysEnter() {
-//	__asm {
-//		pushad;
-//		pushfd;
-//		push es;
-//		push fs;
-//		push ds;
-//		mov ax, 0x30;
-//		mov fs, ax;
-//
-//		call CheckingRegisters;
-//		
-//		pop ds;
-//		pop fs;
-//		pop es;
-//		popfd;
-//		popad;
-//		
-//		jmp [pOriginalSysenter];
-//	}
-//}
-//
-//BOOLEAN HookingSysEnter() {
-//	if (pOriginalSysenter) {
-//		__asm {
-//			push eax;
-//			push ecx;
-//
-//			mov ecx, 0x176;
-//			mov eax, pOriginalSysenter;
-//
-//			wrmsr;
-//
-//			pop ecx;
-//			pop eax;
-//		}
-//		pOriginalSysenter = 0;
-//	}
-//	else {
-//		__asm {
-//			push eax;
-//			push ecx;
-//
-//			// Backup.
-//			mov ecx, 0x176;
-//			rdmsr;
-//
-//			mov pOriginalSysenter, eax;
-//
-//			// Manipulate.
-//			mov eax, HookedSysEnter;
-//			wrmsr;
-//
-//			pop ecx;
-//			pop eax;
-//		}
-//	}
-//	
-//	if (pOriginalSysenter)
-//		return TRUE;
-//	else
-//		return FALSE;
-//}
 
 NTSTATUS ManipulateAddressTables(PDEVICE_EXTENSION pExtension) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
@@ -405,21 +294,17 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 			}
 				
 			// Mapping to System Address.
-//			if ((pExtension->pTargetObject->pUsingMdl)) {
-				mappedAddress = MmMapLockedPages(pExtension->pTargetObject->pUsingMdl, KernelMode);
-				if (mappedAddress == NULL) {
-					// First, Restore the Address tables.
-					RestoreAddressTables();
+			mappedAddress = MmMapLockedPages(pExtension->pTargetObject->pUsingMdl, KernelMode);
+			if (mappedAddress == NULL) {
+				// First, Restore the Address tables.
+				RestoreAddressTables();
 
-					DbgPrintEx(101, 0, "    -> Failed to map to System Address.\n");
-					IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
-					pExtension->pTargetObject->pUsingMdl = NULL;
+				DbgPrintEx(101, 0, "    -> Failed to map to System Address.\n");
+				IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
+				pExtension->pTargetObject->pUsingMdl = NULL;
 
-					return mappedAddress;
-				}
-			//}
-			//else
-			//	DbgPrintEx(101, 0, "    -> Failed to lock the memory...\n");
+				return mappedAddress;
+			}
 		}
 
 		// Always Restore.
@@ -1880,19 +1765,19 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 		}
 
 		// If found, the Message Queuing...
-		//if (pMessage->Message.MessageType != 0) {
-		//	if (QueuingMessage(pMessage)) {
-		//		pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
-		//		if (pMessage)
-		//			RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
-		//		else
-		//			goto ERROR_OCCURED;
-		//	}
-		//	else {
-		//		ExFreePool(pMessage);
-		//		goto ERROR_OCCURED;
-		//	}
-		//}
+		if (pMessage->Message.MessageType != 0) {
+			if (QueuingMessage(pMessage)) {
+				pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
+				if (pMessage)
+					RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+				else
+					goto ERROR_OCCURED;
+			}
+			else {
+				ExFreePool(pMessage);
+				goto ERROR_OCCURED;
+			}
+		}
 	}
 
 	if (pMessage) {
