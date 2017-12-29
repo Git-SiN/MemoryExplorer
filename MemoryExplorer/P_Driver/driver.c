@@ -14,22 +14,22 @@ PDEVICE_OBJECT pMyDevice = NULL;
 
 
 /////////////////////////////////////		MESSAGE_TYPE		////////////////////////////////////////
-#define MESSAGE_TYPE_FAILED					(ULONG)0
-#define MESSAGE_TYPE_PROCESS_INFO			(ULONG)1
-#define MESSAGE_TYPE_VAD					(ULONG)2
-#define MESSAGE_TYPE_THREADS				(ULONG)3
-#define MESSAGE_TYPE_SECURITY				(ULONG)4
-#define	MESSAGE_TYPE_HANDLES				(ULONG)5
-#define MESSAGE_TYPE_OBJECT_UNICODE			(ULONG)6
-#define MESSAGE_TYPE_WORKINGSET_SUMMARY		(ULONG)7
-#define MESSAGE_TYPE_WORKINGSET_LIST		(ULONG)8
-#define MESSAGE_TYPE_PATTERN_UNICODE		(ULONG)9
-#define MESSAGE_TYPE_PATTERN_STRING			(ULONG)10
-#define MESSAGE_TYPE_END_OF_FINDER			(ULONG)11
+#define MESSAGE_TYPE_FAILED					0
+#define MESSAGE_TYPE_PROCESS_INFO			1
+#define MESSAGE_TYPE_VAD					2
+#define MESSAGE_TYPE_THREADS				3
+#define MESSAGE_TYPE_SECURITY				4
+#define	MESSAGE_TYPE_HANDLES				5
+#define MESSAGE_TYPE_OBJECT_UNICODE			6
+#define MESSAGE_TYPE_WORKINGSET_SUMMARY		7
+#define MESSAGE_TYPE_WORKINGSET_LIST		8
+#define MESSAGE_TYPE_PATTERN_UNICODE		9
+#define MESSAGE_TYPE_PATTERN_STRING			10
+#define MESSAGE_TYPE_END_OF_FINDER			11
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-#define VA_FOR_PAGE_DIRECTORY_TABLE			(ULONG)0xC0600000		// x86 PAE [x86 : 0xC0300000]
-#define VA_FOR_PAGE_TABLE					(ULONG)0xC0000000
+#define VA_FOR_PAGE_DIRECTORY_TABLE			0xC0600000		// x86 PAE [x86 : 0xC0300000]
+#define VA_FOR_PAGE_TABLE					0xC0000000
 
 
 #pragma pack(1)
@@ -76,6 +76,8 @@ typedef struct _MESSAGE_LIST {
 }MESSAGE_LIST, *PMESSAGE_LIST;
 #pragma pack()
 
+//ULONG pOriginalSysenter = 0;
+
 PVOID NTAPI ObGetObjectType(PVOID pObject);
 
 BOOLEAN QueuingMessage(PMESSAGE_LIST pMessage) {
@@ -100,6 +102,116 @@ BOOLEAN QueuingMessage(PMESSAGE_LIST pMessage) {
 	
 	return TRUE;
 }
+
+
+VOID CheckingRegisters() {
+	ULONG currentEsp = 0;
+	ULONG currentEbp = 0;
+	//ULONG currentEip = 0;
+
+	//	UCHAR aroundEbp[40] = { 0, };
+
+	
+	__asm {
+		mov currentEsp, esp;
+		mov currentEbp, ebp;
+		//mov currentEip, eip;
+	}
+	//	push eax;
+	//	push ebx;
+	//	push ecx;
+
+	//	// Initialize.
+	//	mov eax, ebp;
+	//	sub eax, 0xC;
+
+	//	lea ebx, dword ptr [aroundEbp];
+	//	xor ecx, ecx;
+
+	//	// Copy.
+	//COPY_LOOP:
+	//	add ebx, ecx;
+	//	add eax, ecx;
+
+	//	mov [ebx], [eax];
+	//	add ecx, 4;
+	//	cmp ecx, 0x32;
+
+
+
+	//	pop ecx;
+	//	pop ebx;
+	//	pop eax;
+	//}
+
+	//DbgPrintEx(101, 0, "[[[[[[[[ ESP : 0x%08X EBP : 0x%08X EIP : 0x%08X ]]]]]]]]\n", currentEsp, currentEbp, currentEip);
+	//DbgPrintEx(101, 0, "[[[[[[[[ Original SysEnter : 0x%08X ]]]]]]]]\n", pOriginalSysenter);
+}
+
+//
+//__declspec(naked) HookedSysEnter() {
+//	__asm {
+//		pushad;
+//		pushfd;
+//		push es;
+//		push fs;
+//		push ds;
+//		mov ax, 0x30;
+//		mov fs, ax;
+//
+//		call CheckingRegisters;
+//		
+//		pop ds;
+//		pop fs;
+//		pop es;
+//		popfd;
+//		popad;
+//		
+//		jmp [pOriginalSysenter];
+//	}
+//}
+//
+//BOOLEAN HookingSysEnter() {
+//	if (pOriginalSysenter) {
+//		__asm {
+//			push eax;
+//			push ecx;
+//
+//			mov ecx, 0x176;
+//			mov eax, pOriginalSysenter;
+//
+//			wrmsr;
+//
+//			pop ecx;
+//			pop eax;
+//		}
+//		pOriginalSysenter = 0;
+//	}
+//	else {
+//		__asm {
+//			push eax;
+//			push ecx;
+//
+//			// Backup.
+//			mov ecx, 0x176;
+//			rdmsr;
+//
+//			mov pOriginalSysenter, eax;
+//
+//			// Manipulate.
+//			mov eax, HookedSysEnter;
+//			wrmsr;
+//
+//			pop ecx;
+//			pop eax;
+//		}
+//	}
+//	
+//	if (pOriginalSysenter)
+//		return TRUE;
+//	else
+//		return FALSE;
+//}
 
 NTSTATUS ManipulateAddressTables(PDEVICE_EXTENSION pExtension) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
@@ -268,6 +380,8 @@ VOID RestoreAddressTables() {
 PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operation) {
 	PVOID mappedAddress = NULL;
 	PDEVICE_EXTENSION pExtension = pMyDevice->DeviceExtension;
+	ULONG backupESP = 0;
+	ULONG backupEBP = 0;
 
 	// Exchange the Vad & PDT
 	if (pExtension && (NT_SUCCESS(ManipulateAddressTables(pExtension)))) {
@@ -281,21 +395,31 @@ PVOID LockAndMapMemory(ULONG StartAddress, ULONG Length, LOCK_OPERATION Operatio
 				MmProbeAndLockPages(pExtension->pTargetObject->pUsingMdl, KernelMode, Operation);
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
+				// First, Restore the Address tables.
+				RestoreAddressTables();
+
 				IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
 				pExtension->pTargetObject->pUsingMdl = NULL;
+
+				return mappedAddress;
 			}
 				
 			// Mapping to System Address.
-			if ((pExtension->pTargetObject->pUsingMdl) != NULL) {
+//			if ((pExtension->pTargetObject->pUsingMdl)) {
 				mappedAddress = MmMapLockedPages(pExtension->pTargetObject->pUsingMdl, KernelMode);
 				if (mappedAddress == NULL) {
+					// First, Restore the Address tables.
+					RestoreAddressTables();
+
 					DbgPrintEx(101, 0, "    -> Failed to map to System Address.\n");
 					IoFreeMdl(pExtension->pTargetObject->pUsingMdl);
 					pExtension->pTargetObject->pUsingMdl = NULL;
+
+					return mappedAddress;
 				}
-			}
-			else
-				DbgPrintEx(101, 0, "    -> Failed to lock the memory...\n");
+			//}
+			//else
+			//	DbgPrintEx(101, 0, "    -> Failed to lock the memory...\n");
 		}
 
 		// Always Restore.
@@ -326,6 +450,10 @@ VOID UnMapAndUnLockMemory(PVOID mappedAddress) {
 				pExtension->pTargetObject->pUsingMdl = NULL;
 			}
 			__except (EXCEPTION_EXECUTE_HANDLER) {
+				// First, Restore the Address tables.
+				RestoreAddressTables();
+
+				return;
 //				DbgPrintEx(101, 0, "[ERROR] Failed to unlock the MDL...\n");
 				// In this case, just proceed...
 			}
@@ -437,7 +565,6 @@ VOID OnUnload(PDRIVER_OBJECT pDriverObject) {
 	
 		ObDereferenceObject(pExtension->CommunicationThread);
 	}
-	
 
 	KeAcquireSpinLock(&(pExtension->PendingIrpLock), &oldIrql);
 	if (!IsListEmpty(&(pExtension->PendingIrpQueue))) {
@@ -1260,7 +1387,7 @@ NTSTATUS InitializeTargetObject(PDEVICE_EXTENSION pExtension, ULONG targetPID){
 		UserMessageMaker(pExtension, MESSAGE_TYPE_WORKINGSET_SUMMARY);
 
 		return STATUS_SUCCESS;
-	}
+	}	
 }
 
 //if "pMessage->MessageType" is lower than 100, it is the message for get the Subsections
@@ -1586,6 +1713,7 @@ BOOLEAN UnicodeCheck(USHORT code)
 
 }
 
+
 // pBuffer[2]'s Most-Significant 2 bytes == level
 NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	NTSTATUS ntStatus = STATUS_UNSUCCESSFUL;
@@ -1599,6 +1727,7 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	BOOLEAN isConnected = FALSE;
 	BOOLEAN isKernelMode = FALSE;
 	PMESSAGE_LIST pMessage = NULL;
+	WCHAR testString[] = L"Pattern Test Pattern Test Pattern Test Pattern Test Pattern Test Pattern Test";
 
 	startAddress = pBuffer[1];
 	size = ((PUSHORT)pBuffer)[0];
@@ -1628,6 +1757,36 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 	}
 	RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
 
+	// 테스트 제대로 동작 -> 실코드 제대로 오류 -> 폼에서 foundList에 저장하는 거 자체를 ListViewItem으로 변경.
+	//	-> 실코드 제대로 동작 -> STRING에서 오류 -> 재부팅 -> 다시 UNICODE에서도 오류,
+	//		-> 뭐야 대체
+
+	// For Test...
+	/*for (i = 1; i < 12; i++) {
+		*(PULONG)(pMessage->Message.Buffer) = 12;
+		*(PULONG)(pMessage->Message.Buffer + 4) = 0x88888888;
+		RtlCopyMemory(pMessage->Message.Buffer + 12, testString + i, i * 2);
+		pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_UNICODE;
+
+		if (QueuingMessage(&(pMessage->ListEntry))) {
+			pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
+			if (pMessage)
+				RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+			else
+			{
+				goto ERROR_OCCURED;
+			}
+		}
+		else {
+			ExFreePool(pMessage);
+			goto ERROR_OCCURED;
+		}
+	}
+	ExFreePool(pDump);
+	return STATUS_SUCCESS;*/
+
+
+
 	if (ctlCode == IOCTL_FIND_PATTERN_UNICODE)
 		level *= 2;
 
@@ -1655,6 +1814,7 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 						else
 							RtlCopyMemory(((pMessage->Message.Buffer) + 12), (pDump + i), tmpLength);
 				
+
 						*(PULONG)(pMessage->Message.Buffer) = (tmpLength / 2);
 						*(PULONG)((pMessage->Message.Buffer) + 4) = startAddress + i;
 						pMessage->Message.MessageType = MESSAGE_TYPE_PATTERN_UNICODE;
@@ -1716,22 +1876,23 @@ NTSTATUS PatternFinder(PULONG pBuffer, ULONG ctlCode) {
 				goto ERROR_OCCURED;	
 			default : 
 				ExFreePool(pMessage);
+				goto ERROR_OCCURED;
 		}
 
 		// If found, the Message Queuing...
-		if (pMessage->Message.MessageType != 0) {
-			if (QueuingMessage(pMessage)) {
-				pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
-				if (pMessage)
-					RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
-				else
-					goto ERROR_OCCURED;
-			}
-			else {
-				ExFreePool(pMessage);
-				goto ERROR_OCCURED;
-			}
-		}
+		//if (pMessage->Message.MessageType != 0) {
+		//	if (QueuingMessage(pMessage)) {
+		//		pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
+		//		if (pMessage)
+		//			RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
+		//		else
+		//			goto ERROR_OCCURED;
+		//	}
+		//	else {
+		//		ExFreePool(pMessage);
+		//		goto ERROR_OCCURED;
+		//	}
+		//}
 	}
 
 	if (pMessage) {
@@ -2031,7 +2192,6 @@ NTSTATUS FinderWrapper(PULONG pBuffer, ULONG ctlCode) {
 	ULONG errorCount = 0;
 	ULONG diff = 0;
 
-
 	pMessage = ExAllocatePool(NonPagedPool, sizeof(MESSAGE_LIST));
 	if (pMessage == NULL) {
 		DbgPrintEx(101, 0, "[ERROR] Failed to allocate pool in FinderWrapper().\n");
@@ -2107,9 +2267,23 @@ NTSTATUS FinderWrapper(PULONG pBuffer, ULONG ctlCode) {
 	//	    -> If it succeed, Return the STATUS_SUCCESS.
 	//		-> The result of this searching is stored at the EOF Message's Address2 field.
 	if(pMessage){
+		RtlZeroMemory(pMessage, sizeof(MESSAGE_LIST));
 		pMessage->Message.MessageType = MESSAGE_TYPE_END_OF_FINDER;
 		*(PULONG)((pMessage->Message.Buffer) + 8) = errorCount;
-		*(PULONG)(pMessage->Message.Buffer) = ctlCode;
+		switch (ctlCode) {
+		case IOCTL_FIND_OBJECT_UNICODE:
+			*(PULONG)(pMessage->Message.Buffer) = (ULONG)MESSAGE_TYPE_OBJECT_UNICODE;
+			break;
+		case IOCTL_FIND_PATTERN_UNICODE:
+			*(PULONG)(pMessage->Message.Buffer) = (ULONG)MESSAGE_TYPE_PATTERN_UNICODE;
+			break;
+		case IOCTL_FIND_PATTERN_STRING:
+			*(PULONG)(pMessage->Message.Buffer) = (ULONG)MESSAGE_TYPE_PATTERN_STRING;
+			break;
+		default:
+			*(PULONG)(pMessage->Message.Buffer) = (ULONG)MESSAGE_TYPE_FAILED;
+			break;
+		}
 		if (!QueuingMessage(&(pMessage->ListEntry))) {
 			DbgPrintEx(101, 0, "[ERROR] Failed to queue EOF Message at the FinderWrapper()\n");
 			ExFreePool(pMessage);
@@ -2204,6 +2378,12 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 		}
 		else {
 			ntStatus = InitializeTargetObject(pExtension, *(PULONG)pBuffer);
+
+			// FOR TEST....
+			/*if (NT_SUCCESS(ntStatus)){
+				if (HookingSysEnter())
+					DbgPrintEx(101, 0, "[[[[[  Original SYSTENTER : 0x%08X\n", pOriginalSysenter);
+			}*/
 		}
 		break;
 	case IOCTL_UNSELECT_TARGET:
@@ -2249,6 +2429,9 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 			// Empty the message queue for the current target.
 			ListCleaner(&(pExtension->MessageQueue), &(pExtension->MessageLock));
 			ntStatus = STATUS_SUCCESS;
+
+			//if (pOriginalSysenter)
+			//	HookingSysEnter();
 		}
 		pIrp->IoStatus.Information = 0;
 		break;
@@ -2278,7 +2461,7 @@ NTSTATUS ControlDispatch(PDEVICE_OBJECT pDeviceObject, PIRP pIrp) {
 		if ((pBuffer != NULL) && ((irpStack->Parameters.DeviceIoControl.InputBufferLength) == 212)) {
 			ntStatus = FinderWrapper(pBuffer, ctlCode);
 		}
-		pIrp->IoStatus.Information = 0;
+		pIrp->IoStatus.Information = 212;
 		break;
 	case IOCTL_FIND_POINTER_UNICODE:
 	case IOCTL_FIND_POINTER_STRING:
@@ -2524,7 +2707,9 @@ NTSTATUS DriverEntry(PDRIVER_OBJECT pDriverObject, PUNICODE_STRING regPath) {
 		/*		if (NT_SUCCESS(InitializeTargetObject(pExtension, 4))) {
 					DbgPrintEx(101, 0, "%s %08X %u %08X\n", pExtension->pTargetObject->ImageFileName, pExtension->pTargetObject->pVadRoot, pExtension->pTargetObject->ProcessId, pExtension->pTargetObject->pEprocess);
 				}*/
+			
 				return ntStatus;
+
 			}
 			
 		}

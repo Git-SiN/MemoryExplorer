@@ -118,7 +118,7 @@ namespace MemoryExplorer
         public uint Length;
         public uint Address;
         public uint Address2;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 100)]  
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 104)]  
         public string Contents;
     }
 
@@ -296,6 +296,7 @@ namespace MemoryExplorer
 
         private List<uint[]> workingSetList = new List<uint[]>();
         private List<ListViewItem> foundList = new List<ListViewItem>();
+        private MESSAGE_TYPE foundType = MESSAGE_TYPE.Failed;
         private uint workingSetListCount = 0;
         
        // internal bool memoryManipulated = false;
@@ -335,17 +336,18 @@ namespace MemoryExplorer
                 {
                     CommunicationThread = new Thread(CommunicationFunction);
                     CommunicationThread.Start();
-                    if((CommunicationThread == null) || ((CommunicationThread.ThreadState & System.Threading.ThreadState.Running ) != System.Threading.ThreadState.Running))
+                    if((CommunicationThread == null) || ((CommunicationThread.ThreadState & System.Threading.ThreadState.Running) != System.Threading.ThreadState.Running))
                     {
                         MessageBox.Show("Starting Communication Thread is failed.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                         return;
                     }
+                    
                 }
                 // 어짜피 드라이버 내에서 내가 프로세스 리스트 뽑는 방식이, 스텔스 프로세스 못찾음............
                 //Thread queryThread = new Thread(QueryProcessList);
                 //queryThread.Start();
                 //queryThread.Join();
-
+                
             }
         }
 
@@ -357,7 +359,7 @@ namespace MemoryExplorer
         {
             if (type == null)
                 return null;
-
+            
             int typeLength = Marshal.SizeOf(type);          
             
 
@@ -537,14 +539,17 @@ namespace MemoryExplorer
                     //First, Keep the received Items.
                     MessageBox.Show("Failed to search the whole target range.", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+                foundType = (MESSAGE_TYPE)(buffer.Length);
                 lFinder.VirtualListSize = foundList.Count;
-            //    lFinder.Refresh();
                 return;
             }
             else
             {
                 if ((buffer.Length > 0) && (buffer.Contents.Length > 0))
                 {
+
+                    //foundList.Add(buffer);
+
                     string[] entry = new string[lFinder.Columns.Count];
                     entry[0] = (foundList.Count + 1).ToString();
 
@@ -555,23 +560,23 @@ namespace MemoryExplorer
                             entry[2] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
                             entry[3] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
                             entry[4] = String.Format("0x{0:X8}", buffer.Address);
-                            entry[5] = buffer.Contents;
+                            entry[5] = /*buffer.Contents*/"";
                             if ((entry[5].Length * 2) < (buffer.Length & 0xFFFF))
-                                entry[5] += "...";
+                                entry[5] += "[+]";
                             break;
                         case (uint)(MESSAGE_TYPE.Pattern_Unicode):
                         case (uint)(MESSAGE_TYPE.Pattern_String):
                             entry[1] = String.Format("0x{0:X8}", buffer.Address);
                             entry[2] = String.Format("0x{0:X4}", buffer.Length);
-                            entry[3] = buffer.Contents;
+                            entry[3] = /*buffer.Contents*/"";
 
                             // Connected to the next page.
-                            if ((buffer.Address2 & 0xF0000000) == 0xF0000000)
+                            if ((buffer.Address2 & 0x80000000) == 0x80000000)
                                 entry[2] += "[C]";
 
-                            // Over 255.
+                            // Over 100.
                             if ((buffer.Address2 & 0x1) == 0x1)
-                                entry[3] += "...";
+                                entry[3] += "[+]";
 
                             break;
                         default:
@@ -1489,12 +1494,45 @@ namespace MemoryExplorer
 
         private ListViewItem MakeVirtualItemForFinder(int index)
         {
-            //string[] entry = new string[4];
-            //entry[0] = foundList.Count.ToString();
-            //entry[1] = lFinder.VirtualListSize.ToString();
-            //entry[2] = index.ToString();
-            //entry[3] = lFinder.Items.Count.ToString();
+            //FINDER_ENTRY buffer = foundList[index];
+            //string[] entry = new string[lFinder.Columns.Count];
+            //entry[0] = (index + 1).ToString();
+
+            //switch ((uint)foundType)
+            //{
+            //    case (uint)(MESSAGE_TYPE.Object_Unicode):
+            //        entry[1] = String.Format("0x{0:X8}", buffer.Address2);
+            //        entry[2] = String.Format("0x{0:X4}", (buffer.Length & 0xFFFF));
+            //        entry[3] = String.Format("0x{0:X4}", (buffer.Length >> 16));     // UNICODE_STRING::MaximumLength
+            //        entry[4] = String.Format("0x{0:X8}", buffer.Address);
+            //        //entry[5] = buffer.Contents;
+            //        //if ((entry[5].Length * 2) < (buffer.Length & 0xFFFF))
+            //        //    entry[5] += "[+]";
+            //        break;
+            //    case (uint)(MESSAGE_TYPE.Pattern_Unicode):
+            //    case (uint)(MESSAGE_TYPE.Pattern_String):
+            //        entry[1] = String.Format("0x{0:X8}", buffer.Address);
+            //        entry[2] = String.Format("0x{0:X4}", buffer.Length);
+            //        entry[3] = buffer.Contents;
+
+            //        // Connected to the next page.
+            //        if ((buffer.Address2 & 0x80000000) == 0x80000000)
+            //            entry[2] += "[C]";
+
+            //        // Over 100.
+            //        if ((buffer.Address2 & 0x1) == 0x1)
+            //            entry[3] += "[+]";
+
+            //        break;
+            //    default:
+            //        break;
+            //}
+
+            //// For Test.......
+            //// entry[1] = lFinder.VirtualListSize.ToString();
+
             //return new ListViewItem(entry);
+            
             return (foundList[index]);
         }
 
